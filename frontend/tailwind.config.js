@@ -59,6 +59,8 @@ module.exports = {
   },
   plugins: [
     require('@tailwindcss/forms'),
+    require('@tailwindcss/aspect-ratio'),
+    require('@tailwindcss/line-clamp'),
     function({ addVariant }) {
       // Adds a `light:` variant for targeting light mode specifically
       addVariant('light', ':where(:not(.dark) &)');

@@ -4,7 +4,9 @@
   "private": true,
   "dependencies": {
     "@headlessui/react": "^1.7.17",
+    "@tailwindcss/aspect-ratio": "^0.4.2",
     "@tailwindcss/forms": "^0.5.6",
+    "@tailwindcss/line-clamp": "^0.4.4",
     "axios": "^1.5.1",
     "framer-motion": "^10.16.4",
     "react": "^18.2.0",
@@ -45,4 +47,4 @@
     "autoprefixer": "^10.4.16",
     "postcss": "^8.4.31"
   }
-} 
+}
