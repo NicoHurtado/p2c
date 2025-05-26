@@ -1,12 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from typing import List, Dict, Any, Optional
-import os
 import requests
 import hmac
 import hashlib
 import json
 from datetime import datetime, timedelta
 
+from config import settings
 from models.user import User
 from utils.auth import get_current_user
 from services.subscription_service import (
@@ -14,33 +13,12 @@ from services.subscription_service import (
     update_user_plan,
     get_available_plans
 )
-
-# Pydantic models for requests and responses
-from pydantic import BaseModel
-
-class PlanUpdateRequest(BaseModel):
-    plan: str  # "free" o "pro"
-
-class InitiatePaymentRequest(BaseModel):
-    plan: str  # "free" o "pro"
-    return_url: str
-
-class PaymentWebhookData(BaseModel):
-    event: str
-    data: Dict[str, Any]
-    timestamp: int
-    signature: Optional[str] = None
-
-# Credenciales de Wompi (en producción, deben estar en variables de entorno)
-WOMPI_PUBLIC_KEY = os.getenv("WOMPI_PUBLIC_KEY", "pub_test_dummy_key")
-WOMPI_PRIVATE_KEY = os.getenv("WOMPI_PRIVATE_KEY", "prv_test_dummy_key")
-WOMPI_EVENTS_KEY = os.getenv("WOMPI_EVENTS_KEY", "test_events_dummy_key")
-WOMPI_API_URL = os.getenv("WOMPI_API_URL", "https://sandbox.wompi.co/v1")
+from schemas import PlanUpdateRequest, InitiatePaymentRequest, PaymentWebhookData
 
 # Create router
 router = APIRouter()
 
-@router.get("/subscription")
+@router.get("/")
 async def get_subscription(current_user: User = Depends(get_current_user)):
     """Get the current user's subscription details"""
     subscription = await get_user_subscription(current_user.id)
@@ -53,7 +31,7 @@ async def get_subscription(current_user: User = Depends(get_current_user)):
     
     return subscription
 
-@router.post("/subscription")
+@router.post("/")
 async def update_subscription(request: PlanUpdateRequest, current_user: User = Depends(get_current_user)):
     """Update the user's subscription to a new plan"""
     try:
@@ -103,14 +81,23 @@ async def initiate_payment(request: InitiatePaymentRequest, current_user: User =
         
         # Para desarrollo, simulamos el pago inmediatamente en lugar de crearlo
         # Esto evita problemas con payment_references
-        updated_subscription = await update_user_plan(current_user.id, request.plan)
+        if settings.SIMULATION_MODE:
+            updated_subscription = await update_user_plan(current_user.id, request.plan)
+            
+            return {
+                "success": True,
+                "message": "Pago simulado procesado correctamente (modo desarrollo)",
+                "subscription": updated_subscription,
+                "reference": f"dev_{current_user.id}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+                "payment_url": request.return_url
+            }
+        
+        # Implementación real de Wompi aquí cuando no esté en modo simulación
+        # TODO: Implementar integración real con Wompi
         
         return {
-            "success": True,
-            "message": "Pago simulado procesado correctamente (modo desarrollo)",
-            "subscription": updated_subscription,
-            "reference": f"dev_{current_user.id}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
-            "payment_url": request.return_url
+            "success": False,
+            "message": "Integración de pagos no implementada para modo producción"
         }
         
     except Exception as e:
@@ -185,6 +172,12 @@ async def payment_webhook(webhook_data: PaymentWebhookData, request: Request):
 @router.post("/payments/simulate-success")
 async def simulate_payment_success(request: PlanUpdateRequest, current_user: User = Depends(get_current_user)):
     """Endpoint para simular un pago exitoso (solo para desarrollo)"""
+    if not settings.SIMULATION_MODE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Esta función solo está disponible en modo simulación"
+        )
+    
     # Actualizar directamente el plan del usuario
     updated_subscription = await update_user_plan(current_user.id, request.plan)
     

@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiCpu, FiArrowRight, FiCheck, FiInfo } from 'react-icons/fi';
 import Layout from '../components/Layout';
-import SubscriptionModal from '../components/SubscriptionModal';
+import CourseLoadingScreen from '../components/CourseLoadingScreen';
+import CourseDisplay from '../components/CourseDisplay';
 import { courseService } from '../services/api';
-import axios from 'axios';
 import { ThemeContext } from '../context/ThemeContext';
 
 const experienceLevels = [
@@ -14,32 +14,45 @@ const experienceLevels = [
   { id: 'advanced', name: 'Avanzado', description: 'Amplio conocimiento y experiencia.' },
 ];
 
-const timeDurations = [
-  { id: '1hour', name: '1 hora', description: 'Curso rápido, conceptos clave.' },
-  { id: '1day', name: '1 día', description: 'Curso de medio día, más detallado.' },
-  { id: '1week', name: '1 semana', description: 'Curso completo con prácticas.' },
-  { id: '1month', name: '1 mes', description: 'Curso exhaustivo y en profundidad.' },
+const personalities = [
+  { id: 'analytical', name: 'Analítico', description: 'Prefiero datos, lógica y análisis detallado.' },
+  { id: 'creative', name: 'Creativo', description: 'Me gusta la innovación y el pensamiento fuera de la caja.' },
+  { id: 'practical', name: 'Práctico', description: 'Enfoque directo y aplicación inmediata.' },
+  { id: 'social', name: 'Social', description: 'Aprendo mejor en grupo y con interacción.' },
+];
+
+const learningStyles = [
+  { id: 'visual', name: 'Visual', description: 'Aprendo mejor con imágenes, diagramas y gráficos.' },
+  { id: 'auditory', name: 'Auditivo', description: 'Prefiero explicaciones verbales y discusiones.' },
+  { id: 'kinesthetic', name: 'Kinestésico', description: 'Aprendo haciendo y con experiencias prácticas.' },
+  { id: 'interactive', name: 'Interactivo', description: 'Prefiero ejercicios interactivos y gamificación.' },
+];
+
+const intensities = [
+  { id: 'short', name: 'Corto', description: 'Curso rápido, conceptos esenciales (1-2 semanas).' },
+  { id: 'medium', name: 'Medio', description: 'Curso balanceado con práctica (3-4 semanas).' },
+  { id: 'long', name: 'Largo', description: 'Curso exhaustivo y detallado (2-3 meses).' },
 ];
 
 const CourseGenerator = () => {
   const navigate = useNavigate();
   const { darkMode } = useContext(ThemeContext);
   
-  const [topic, setTopic] = useState('');
+  const [prompt, setPrompt] = useState('');
   const [experienceLevel, setExperienceLevel] = useState('');
-  const [availableTime, setAvailableTime] = useState('');
+  const [personality, setPersonality] = useState('');
+  const [learningStyle, setLearningStyle] = useState('');
+  const [intensity, setIntensity] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const [error, setError] = useState('');
-  
-  // Estados para el modal de suscripción
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
-  const [availablePlans, setAvailablePlans] = useState([]);
-  const [currentTier, setCurrentTier] = useState('free');
+  const [generatedCourse, setGeneratedCourse] = useState(null);
+  const [showCourseDisplay, setShowCourseDisplay] = useState(false);
   
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!topic.trim()) {
+    if (!prompt.trim()) {
       setError('Por favor, ingresa un tema para el curso');
       return;
     }
@@ -49,78 +62,135 @@ const CourseGenerator = () => {
       return;
     }
     
-    if (!availableTime) {
-      setError('Por favor, selecciona el tiempo disponible');
+    if (!personality) {
+      setError('Por favor, selecciona tu tipo de personalidad');
+      return;
+    }
+    
+    if (!learningStyle) {
+      setError('Por favor, selecciona tu estilo de aprendizaje');
+      return;
+    }
+    
+    if (!intensity) {
+      setError('Por favor, selecciona la intensidad del curso');
       return;
     }
     
     setError('');
     setIsGenerating(true);
+    setLoadingProgress(0);
+    
+    // More realistic progress simulation for long AI generations
+    let currentProgress = 0;
+    const progressInterval = setInterval(() => {
+      setLoadingProgress(prev => {
+        currentProgress = prev;
+        
+        // Slower, more realistic progress
+        if (currentProgress < 20) {
+          // Fast initial progress (connecting, validating)
+          return prev + Math.random() * 8;
+        } else if (currentProgress < 40) {
+          // Slower progress (AI thinking)
+          return prev + Math.random() * 3;
+        } else if (currentProgress < 70) {
+          // Very slow progress (generating content)
+          return prev + Math.random() * 1.5;
+        } else if (currentProgress < 85) {
+          // Minimal progress (finalizing)
+          return prev + Math.random() * 0.8;
+        } else if (currentProgress < 95) {
+          // Almost done
+          return prev + Math.random() * 0.3;
+        } else {
+          // Stop at 95% until we get the response
+          return 95;
+        }
+      });
+    }, 2000); // Update every 2 seconds instead of 1
     
     try {
-      // Get the name for the selected level and time
-      const levelName = experienceLevels.find(level => level.id === experienceLevel)?.name || experienceLevel;
-      const timeName = timeDurations.find(time => time.id === availableTime)?.name || availableTime;
-      
       const result = await courseService.generateCourse(
-        topic,
-        levelName,
-        timeName
+        prompt,
+        experienceLevel,
+        personality,
+        learningStyle,
+        intensity
       );
       
-      // Save the course
+      clearInterval(progressInterval);
+      setLoadingProgress(100);
+      
+      // Add form data to the result for saving
+      const courseWithFormData = {
+        ...result,
+        prompt: prompt,
+        experience_level: experienceLevel,
+        personality: personality,
+        learning_style: learningStyle,
+        intensity: intensity
+      };
+      
+      setGeneratedCourse(courseWithFormData);
+      
+      // Small delay to show 100% progress
+      setTimeout(() => {
+        setIsGenerating(false);
+        setShowCourseDisplay(true);
+      }, 1000);
+      
+    } catch (error) {
+      clearInterval(progressInterval);
+      console.error('Error generating course:', error);
+      
+      // Better error messages based on error type
+      let errorMessage = 'Error al generar el curso. Por favor, intenta de nuevo.';
+      
+      if (error.message.includes('timeout') || error.message.includes('tiempo')) {
+        errorMessage = 'La generación está tomando más tiempo del esperado. Esto es normal para cursos complejos. Por favor, intenta de nuevo o simplifica el tema.';
+      } else if (error.message.includes('conexión') || error.message.includes('connect')) {
+        errorMessage = 'No se puede conectar con el servicio de generación. Verifica que la API externa esté ejecutándose.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
+      setIsGenerating(false);
+      setLoadingProgress(0);
+    }
+  };
+
+  const handleSaveCourse = async () => {
+    if (!generatedCourse) return;
+    
+    try {
       const courseData = {
-        title: result.title,
-        prompt: topic,
-        content: result,
-        experience_level: levelName,
-        available_time: timeName
+        titulo: generatedCourse.titulo,
+        prompt: generatedCourse.prompt,
+        content: generatedCourse,
+        experience_level: generatedCourse.experience_level,
+        available_time: generatedCourse.duracion || intensity
       };
       
       const savedCourse = await courseService.saveCourse(courseData);
       
-      // Redirect to the course view page
+      // Close the display and redirect to the course view
+      setShowCourseDisplay(false);
       navigate(`/courses/${savedCourse.id}`);
+      
     } catch (error) {
-      console.error('Error generating course:', error);
-      
-      // Verificar si es un error de límite de suscripción
-      if (error && error.isSubscriptionLimitError) {
-        setAvailablePlans(error.available_plans || []);
-        setCurrentTier(error.current_tier || 'free');
-        setShowSubscriptionModal(true);
-        setError('Has alcanzado el límite de cursos de tu plan actual.');
-      } else {
-        setError('Error al generar el curso. Por favor, intenta de nuevo.');
-      }
-      setIsGenerating(false);
-    }
-  };
-  
-  const handleSelectPlan = async (plan) => {
-    try {
-      // Aquí implementarías la lógica para suscribirse al plan
-      const API_URL = 'http://localhost:8000';
-      const token = localStorage.getItem('token');
-      
-      const response = await axios.post(`${API_URL}/subscribe`, 
-        { tier_id: plan.id },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      // Cerrar el modal y mostrar un mensaje de éxito
-      setShowSubscriptionModal(false);
-      setError('');
-      alert(`¡Te has suscrito al plan ${plan.name}! Ahora puedes crear hasta ${plan.course_limit === -1 ? 'ilimitados' : plan.course_limit} cursos.`);
-      
-      // Opcionalmente, intentar generar el curso nuevamente
-      // handleSubmit(new Event('submit'));
-    } catch (err) {
-      console.error('Error al suscribirse:', err);
-      setError('Error al procesar la suscripción. Por favor, intenta de nuevo.');
+      console.error('Error saving course:', error);
+      setError('Error al guardar el curso. Por favor, intenta de nuevo.');
     }
   };
 
+  const handleCloseCourseDisplay = () => {
+    setShowCourseDisplay(false);
+    setGeneratedCourse(null);
+    setLoadingProgress(0);
+  };
+  
   // Clases dinámicas basadas en el tema
   const titleClass = darkMode ? 'text-white' : 'text-neutral-900';
   const subtitleClass = darkMode ? 'text-white' : 'text-neutral-900';
@@ -168,17 +238,17 @@ const CourseGenerator = () => {
             </h2>
             
             <div>
-              <label htmlFor="topic" className={`block text-sm font-medium ${labelClass} mb-1`}>
+              <label htmlFor="prompt" className={`block text-sm font-medium ${labelClass} mb-1`}>
                 Tema o habilidad
               </label>
               <textarea
-                id="topic"
-                name="topic"
+                id="prompt"
+                name="prompt"
                 rows={3}
                 className="input"
                 placeholder="Describe el tema que quieres aprender. Sé específico para obtener mejores resultados."
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
               />
               <p className={`mt-2 text-sm ${hintTextClass}`}>
                 <FiInfo className="inline mr-1" />
@@ -217,31 +287,91 @@ const CourseGenerator = () => {
             </div>
           </div>
           
-          {/* Time duration section */}
+          {/* Personality section */}
           <div className="card">
             <h2 className={`text-lg font-medium ${subtitleClass} mb-4 flex items-center`}>
               <span className={circleClass}>3</span>
-              ¿Cuánto tiempo tienes disponible?
+              ¿Cuál es tu tipo de personalidad?
             </h2>
             
             <div className="grid gap-4 sm:grid-cols-2">
-              {timeDurations.map((time) => (
+              {personalities.map((pers) => (
                 <div 
-                  key={time.id}
+                  key={pers.id}
                   className={`border rounded-xl p-4 cursor-pointer transition-all duration-200 ${
-                    availableTime === time.id 
+                    personality === pers.id 
                       ? cardSelectedClass
                       : cardUnselectedClass
                   }`}
-                  onClick={() => setAvailableTime(time.id)}
+                  onClick={() => setPersonality(pers.id)}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className={`font-medium ${cardTitleClass}`}>{time.name}</h3>
-                    {availableTime === time.id && (
+                    <h3 className={`font-medium ${cardTitleClass}`}>{pers.name}</h3>
+                    {personality === pers.id && (
                       <FiCheck className="text-primary-400" />
                     )}
                   </div>
-                  <p className={`text-sm ${cardDescriptionClass}`}>{time.description}</p>
+                  <p className={`text-sm ${cardDescriptionClass}`}>{pers.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Learning style section */}
+          <div className="card">
+            <h2 className={`text-lg font-medium ${subtitleClass} mb-4 flex items-center`}>
+              <span className={circleClass}>4</span>
+              ¿Cuál es tu estilo de aprendizaje?
+            </h2>
+            
+            <div className="grid gap-4 sm:grid-cols-2">
+              {learningStyles.map((style) => (
+                <div 
+                  key={style.id}
+                  className={`border rounded-xl p-4 cursor-pointer transition-all duration-200 ${
+                    learningStyle === style.id 
+                      ? cardSelectedClass
+                      : cardUnselectedClass
+                  }`}
+                  onClick={() => setLearningStyle(style.id)}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className={`font-medium ${cardTitleClass}`}>{style.name}</h3>
+                    {learningStyle === style.id && (
+                      <FiCheck className="text-primary-400" />
+                    )}
+                  </div>
+                  <p className={`text-sm ${cardDescriptionClass}`}>{style.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Intensity section */}
+          <div className="card">
+            <h2 className={`text-lg font-medium ${subtitleClass} mb-4 flex items-center`}>
+              <span className={circleClass}>5</span>
+              ¿Qué intensidad prefieres?
+            </h2>
+            
+            <div className="grid gap-4 sm:grid-cols-3">
+              {intensities.map((int) => (
+                <div 
+                  key={int.id}
+                  className={`border rounded-xl p-4 cursor-pointer transition-all duration-200 ${
+                    intensity === int.id 
+                      ? cardSelectedClass
+                      : cardUnselectedClass
+                  }`}
+                  onClick={() => setIntensity(int.id)}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className={`font-medium ${cardTitleClass}`}>{int.name}</h3>
+                    {intensity === int.id && (
+                      <FiCheck className="text-primary-400" />
+                    )}
+                  </div>
+                  <p className={`text-sm ${cardDescriptionClass}`}>{int.description}</p>
                 </div>
               ))}
             </div>
@@ -270,16 +400,23 @@ const CourseGenerator = () => {
             </motion.button>
           </div>
         </form>
-        
-        {/* Modal de suscripción */}
-        <SubscriptionModal 
-          isOpen={showSubscriptionModal} 
-          onClose={() => setShowSubscriptionModal(false)} 
-          plans={availablePlans}
-          onSelectPlan={handleSelectPlan}
-          currentTier={currentTier}
-        />
       </div>
+
+      {/* Loading Screen */}
+      <CourseLoadingScreen 
+        isVisible={isGenerating} 
+        progress={loadingProgress}
+      />
+
+      {/* Course Display */}
+      {showCourseDisplay && generatedCourse && (
+        <CourseDisplay
+          course={generatedCourse}
+          onSave={handleSaveCourse}
+          onClose={handleCloseCourseDisplay}
+          darkMode={darkMode}
+        />
+      )}
     </Layout>
   );
 };

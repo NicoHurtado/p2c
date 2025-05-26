@@ -8,6 +8,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 900000, // 15 minutes timeout for course generation
 });
 
 // Add request interceptor to include auth token in all authenticated requests
@@ -24,28 +25,31 @@ api.interceptors.request.use(
 
 // Course API Services
 export const courseService = {
-  // Generate a course
-  generateCourse: async (topic, experienceLevel, availableTime) => {
+  // Generate a course using external API
+  generateCourse: async (prompt, experienceLevel, personality, learningStyle, intensity = 'medium') => {
     try {
-      const response = await api.post('/api/generate-course', {
-        topic,
+      const response = await api.post('/api/courses/generate-course', {
+        prompt,
         experience_level: experienceLevel,
-        available_time: availableTime,
+        personality,
+        learning_style: learningStyle,
+        intensity,
+      }, {
+        timeout: 900000, // 15 minutes specifically for course generation
       });
       return response.data;
     } catch (error) {
-      // Para 403 con need_upgrade, queremos pasar todos los detalles del error
-      if (error.response?.status === 403 && error.response?.data?.detail?.need_upgrade) {
-        throw { ...error.response.data.detail, isSubscriptionLimitError: true };
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        throw new Error('La generación del curso está tomando más tiempo del esperado. Esto es normal para cursos complejos. Por favor, intenta de nuevo.');
       }
-      throw new Error(error.response?.data?.detail?.message || error.response?.data?.detail || 'Failed to generate course');
+      throw new Error(error.response?.data?.detail || 'Failed to generate course');
     }
   },
   
   // Save a course
   saveCourse: async (courseData) => {
     try {
-      const response = await api.post('/api/save-course', courseData);
+      const response = await api.post('/api/courses/save', courseData);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.detail || 'Failed to save course');
@@ -55,7 +59,7 @@ export const courseService = {
   // Get all courses for current user
   getCourses: async () => {
     try {
-      const response = await api.get('/api/courses');
+      const response = await api.get('/api/courses/');
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.detail || 'Failed to fetch courses');
@@ -85,7 +89,7 @@ export const courseService = {
   // Solicitar un reemplazo para un tema que ya conoces
   requestTopicReplacement: async (requestData) => {
     try {
-      const response = await api.post('/api/replace-topic', requestData);
+      const response = await api.post('/api/courses/replace-topic', requestData);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.detail || 'Failed to get topic replacement');
@@ -95,7 +99,7 @@ export const courseService = {
   // Solicitar un reemplazo para un módulo que ya conoces
   requestModuleReplacement: async (requestData) => {
     try {
-      const response = await api.post('/api/replace-module', requestData);
+      const response = await api.post('/api/courses/replace-module', requestData);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.detail || 'Failed to get module replacement');

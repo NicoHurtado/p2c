@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta
-from typing import Optional, List
 import uuid
 
 from models.user import User
@@ -12,33 +11,7 @@ from utils.auth import (
     get_current_user, 
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
-
-# Pydantic models for requests and responses
-from pydantic import BaseModel, EmailStr
-
-class UserCreate(BaseModel):
-    username: str
-    email: EmailStr
-    password: str
-
-class UserResponse(BaseModel):
-    id: str
-    username: str
-    email: str
-    created_at: str
-    plan: Optional[str] = "free"
-    plan_end_date: Optional[str] = None
-    completed_setup: Optional[bool] = False
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-    
-class ProfileSetupRequest(BaseModel):
-    interests: List[str]
-    profile_type: str
-    personality_traits: List[str]
-    learning_style: str
+from schemas import UserCreate, UserResponse, Token, ProfileSetupRequest
 
 # Create router
 router = APIRouter()

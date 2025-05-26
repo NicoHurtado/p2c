@@ -5,7 +5,7 @@ export const subscriptionService = {
   // Get all available subscription plans
   getPlans: async () => {
     try {
-      const response = await api.get('/api/plans');
+      const response = await api.get('/api/subscription/plans');
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.detail || 'Failed to fetch subscription plans');
@@ -15,7 +15,7 @@ export const subscriptionService = {
   // Get current user subscription details
   getSubscription: async () => {
     try {
-      const response = await api.get('/api/subscription');
+      const response = await api.get('/api/subscription/');
       return response.data;
     } catch (error) {
       if (error.response?.status === 404) {
@@ -29,7 +29,7 @@ export const subscriptionService = {
   // Update user's subscription plan
   updatePlan: async (plan) => {
     try {
-      const response = await api.post('/api/subscription', { plan });
+      const response = await api.post('/api/subscription/', { plan });
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.detail || 'Failed to update subscription plan');

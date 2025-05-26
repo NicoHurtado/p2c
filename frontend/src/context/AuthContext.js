@@ -22,7 +22,7 @@ export const AuthProvider = ({ children }) => {
       }
       
       try {
-        const response = await axios.get(`${API_URL}/api/me`, {
+        const response = await axios.get(`${API_URL}/api/auth/me`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -49,12 +49,12 @@ export const AuthProvider = ({ children }) => {
       formData.append('username', username);
       formData.append('password', password);
       
-      const response = await axios.post(`${API_URL}/api/token`, formData);
+      const response = await axios.post(`${API_URL}/api/auth/token`, formData);
       
       localStorage.setItem('token', response.data.access_token);
       
       // Fetch user details
-      const userResponse = await axios.get(`${API_URL}/api/me`, {
+      const userResponse = await axios.get(`${API_URL}/api/auth/me`, {
         headers: {
           Authorization: `Bearer ${response.data.access_token}`
         }
@@ -76,7 +76,7 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     
     try {
-      await axios.post(`${API_URL}/api/register`, {
+      await axios.post(`${API_URL}/api/auth/register`, {
         username,
         email,
         password
