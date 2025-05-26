@@ -12,13 +12,9 @@ class Settings:
     DB_NAME: str = os.getenv("DB_NAME", "course_generator")
     
     # Authentication settings
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
-    
-    # OpenAI settings
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
     
     # App settings
     APP_NAME: str = "Course Generator API"
@@ -37,26 +33,17 @@ class Settings:
         "http://127.0.0.1:3000"
     ]
     
-    # Payment settings (Wompi)
-    WOMPI_PUBLIC_KEY: Optional[str] = os.getenv("WOMPI_PUBLIC_KEY")
-    WOMPI_PRIVATE_KEY: Optional[str] = os.getenv("WOMPI_PRIVATE_KEY")
-    WOMPI_EVENTS_KEY: Optional[str] = os.getenv("WOMPI_EVENTS_KEY")
-    WOMPI_API_URL: str = os.getenv("WOMPI_API_URL", "https://sandbox.wompi.co/v1")
-    
-    # Feature flags
-    PAYMENT_ENABLED: bool = os.getenv("PAYMENT_ENABLED", "True").lower() in ("true", "1", "t")
-    SIMULATION_MODE: bool = os.getenv("SIMULATION_MODE", "True").lower() in ("true", "1", "t")
-    
     def validate(self) -> None:
         """Validate required settings."""
-        if not self.SECRET_KEY or self.SECRET_KEY == "your-secret-key-change-in-production":
-            raise ValueError("SECRET_KEY must be set and not be the default value")
+        if not self.SECRET_KEY:
+            raise ValueError("SECRET_KEY must be set in environment variables")
         
-        if not self.OPENAI_API_KEY:
-            raise ValueError("OPENAI_API_KEY must be set")
+        if len(self.SECRET_KEY) < 32:
+            raise ValueError("SECRET_KEY must be at least 32 characters long")
         
         if not self.MONGO_URI:
             raise ValueError("MONGO_URI must be set")
+    
 
 # Global settings instance
 settings = Settings() 
