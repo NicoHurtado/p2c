@@ -71,16 +71,16 @@ const Landing = () => {
     <motion.div 
       initial="hidden" 
       animate="visible" 
-      className="min-h-screen bg-neutral-900 text-white overflow-hidden relative"
+      className="min-h-screen bg-white text-neutral-800 overflow-hidden relative"
     >
       {/* Background Grid */}
-      <BackgroundGrid dotColor="rgba(80, 160, 255, 0.15)" dotSpacing={30} />
+      <BackgroundGrid dotColor="rgba(0, 0, 0, 0.1)" dotSpacing={30} />
       
       {/* Header/Navigation */}
       <motion.header 
         variants={fadeIn}
         transition={{ duration: 0.5 }}
-        className="bg-neutral-900/70 backdrop-blur-lg sticky top-0 z-10 border-b border-neutral-800"
+        className="bg-white/70 backdrop-blur-lg sticky top-0 z-10 border-b border-neutral-200"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
@@ -89,7 +89,7 @@ const Landing = () => {
               transition={{ duration: 0.6 }}
               className="flex-shrink-0 flex items-center"
             >
-              <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-primary-600">
+              <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary-500 to-primary-700">
                 <TextScramble text="Prompt2Course" delay={300} duration={1500} />
               </h1>
             </motion.div>
@@ -102,13 +102,13 @@ const Landing = () => {
                 <motion.button 
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="px-4 py-2 rounded-xl bg-transparent border border-neutral-700 text-neutral-300 hover:bg-neutral-800 transition-all"
+                  className="px-4 py-2 rounded-xl bg-transparent border border-neutral-300 text-neutral-700 hover:bg-neutral-100 transition-all"
                 >
                   Iniciar sesión
                 </motion.button>
               </Link>
               <Link to="/register">
-                <ShinyButton primary>
+                <ShinyButton primary className="text-white">
                   Registrarse
                 </ShinyButton>
               </Link>
@@ -126,7 +126,7 @@ const Landing = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.7 }}
-                className="text-4xl tracking-tight font-bold text-white sm:text-5xl md:text-6xl"
+                className="text-4xl tracking-tight font-bold text-neutral-900 sm:text-5xl md:text-6xl"
               >
                 <motion.span 
                   initial={{ opacity: 0 }}
@@ -147,7 +147,7 @@ const Landing = () => {
                   <TextCycler 
                     texts={rhythmPhrases}
                     interval={3000}
-                    textClassName="text-5xl md:text-6xl font-bold text-primary-400 animated-glow"
+                    textClassName="text-5xl md:text-6xl font-bold text-primary-500 animated-glow"
                   />
                 </motion.div>
               </motion.h1>
@@ -155,7 +155,7 @@ const Landing = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.7 }}
-                className="mt-6 text-lg text-neutral-300"
+                className="mt-6 text-lg text-neutral-600"
               >
                 <TextScramble 
                   text="Prompt2Course te permite generar cursos personalizados para aprender cualquier tema, adaptados a tu nivel de experiencia, gustos, personalidad y tiempo disponible."
@@ -183,7 +183,7 @@ const Landing = () => {
                 >
                   <Link
                     to="/login"
-                    className="inline-flex items-center px-6 py-3 border border-neutral-700 rounded-xl text-base font-medium text-neutral-300 bg-neutral-900 hover:bg-neutral-800 transition-all"
+                    className="inline-flex items-center px-6 py-3 border border-neutral-300 rounded-xl text-base font-medium text-neutral-700 bg-white hover:bg-neutral-100 transition-all"
                   >
                     Iniciar sesión
                   </Link>
@@ -214,12 +214,12 @@ const Landing = () => {
         viewport={{ once: true, amount: 0.2 }}
         variants={fadeIn}
         transition={{ duration: 0.5 }}
-        className="bg-neutral-900 relative py-16 sm:py-24 overflow-hidden"
+        className="bg-neutral-50 relative py-16 sm:py-24 overflow-hidden"
       >
         {/* Subtle background effect */}
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary-500/5 rounded-full blur-3xl" />
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-primary-600/5 rounded-full blur-3xl" />
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary-500/10 rounded-full blur-3xl" />
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-primary-600/10 rounded-full blur-3xl" />
         </div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -230,19 +230,19 @@ const Landing = () => {
           >
             <motion.h2 
               variants={fadeInUp}
-              className="text-base text-primary-400 font-semibold tracking-wide uppercase"
+              className="text-base text-primary-600 font-semibold tracking-wide uppercase"
             >
               <TextScramble text="Características" delay={200} duration={1000} />
             </motion.h2>
             <motion.p 
               variants={fadeInUp}
-              className="mt-2 text-3xl leading-8 font-bold tracking-tight text-white sm:text-4xl"
+              className="mt-2 text-3xl leading-8 font-bold tracking-tight text-neutral-900 sm:text-4xl"
             >
               Todo lo que necesitas para aprender eficientemente
             </motion.p>
             <motion.p 
               variants={fadeInUp}
-              className="mt-4 max-w-2xl text-xl text-neutral-300 lg:mx-auto"
+              className="mt-4 max-w-2xl text-xl text-neutral-600 lg:mx-auto"
             >
               Prompt2Course simplifica el proceso de aprendizaje con herramientas intuitivas y recursos personalizados.
             </motion.p>
@@ -258,7 +258,7 @@ const Landing = () => {
               <motion.div 
                 variants={fadeInUp}
                 whileHover={{ y: -10, transition: { duration: 0.2 } }}
-                className="bg-neutral-800/50 backdrop-blur-sm rounded-2xl p-8 border border-neutral-700/50 shadow-xl"
+                className="bg-white backdrop-blur-sm rounded-2xl p-8 border border-neutral-200 shadow-xl"
               >
                 <div>
                   <motion.div 
@@ -269,8 +269,8 @@ const Landing = () => {
                     <FiBookOpen className="h-6 w-6" />
                   </motion.div>
                   <div className="mt-5">
-                    <h3 className="text-xl font-medium text-white">Cursos personalizados</h3>
-                    <p className="mt-2 text-base text-neutral-300">
+                    <h3 className="text-xl font-medium text-neutral-900">Cursos personalizados</h3>
+                    <p className="mt-2 text-base text-neutral-600">
                       Genera cursos completos y personalizados adaptados a tus necesidades específicas, nivel de experiencia y objetivo de aprendizaje.
                     </p>
                   </div>
@@ -281,7 +281,7 @@ const Landing = () => {
               <motion.div 
                 variants={fadeInUp}
                 whileHover={{ y: -10, transition: { duration: 0.2 } }}
-                className="bg-neutral-800/50 backdrop-blur-sm rounded-2xl p-8 border border-neutral-700/50 shadow-xl"
+                className="bg-white backdrop-blur-sm rounded-2xl p-8 border border-neutral-200 shadow-xl"
               >
                 <div>
                   <motion.div 
@@ -292,8 +292,8 @@ const Landing = () => {
                     <FiClock className="h-6 w-6" />
                   </motion.div>
                   <div className="mt-5">
-                    <h3 className="text-xl font-medium text-white">Eficiente</h3>
-                    <p className="mt-2 text-base text-neutral-300">
+                    <h3 className="text-xl font-medium text-neutral-900">Eficiente</h3>
+                    <p className="mt-2 text-base text-neutral-600">
                       Obtén rápidamente contenido estructurado sin tener que buscar en múltiples fuentes o diseñar tu propio plan de estudio.
                     </p>
                   </div>
@@ -304,7 +304,7 @@ const Landing = () => {
               <motion.div 
                 variants={fadeInUp}
                 whileHover={{ y: -10, transition: { duration: 0.2 } }}
-                className="bg-neutral-800/50 backdrop-blur-sm rounded-2xl p-8 border border-neutral-700/50 shadow-xl"
+                className="bg-white backdrop-blur-sm rounded-2xl p-8 border border-neutral-200 shadow-xl"
               >
                 <div>
                   <motion.div 
@@ -315,8 +315,8 @@ const Landing = () => {
                     <FiSave className="h-6 w-6" />
                   </motion.div>
                   <div className="mt-5">
-                    <h3 className="text-xl font-medium text-white">Biblioteca personal</h3>
-                    <p className="mt-2 text-base text-neutral-300">
+                    <h3 className="text-xl font-medium text-neutral-900">Biblioteca personal</h3>
+                    <p className="mt-2 text-base text-neutral-600">
                       Guarda tus cursos generados en tu biblioteca personal y accede a ellos cuando quieras, desde cualquier dispositivo.
                     </p>
                   </div>
@@ -333,7 +333,7 @@ const Landing = () => {
         whileInView="visible"
         viewport={{ once: true }}
         variants={fadeIn}
-        className="bg-gradient-to-r from-primary-600 to-primary-700 relative overflow-hidden"
+        className="bg-gradient-to-r from-primary-500 to-primary-600 relative overflow-hidden"
       >
         {/* Background shine effect */}
         <motion.div 
@@ -342,8 +342,8 @@ const Landing = () => {
           animate={{ opacity: 0.5 }}
           transition={{ duration: 8, repeat: Infinity, repeatType: 'reverse' }}
         >
-          <div className="absolute top-1/4 -right-20 w-80 h-80 bg-white/20 rounded-full blur-3xl" />
-          <div className="absolute bottom-1/4 -left-20 w-60 h-60 bg-white/10 rounded-full blur-3xl" />
+          <div className="absolute top-1/4 -right-20 w-80 h-80 bg-white/30 rounded-full blur-3xl" />
+          <div className="absolute bottom-1/4 -left-20 w-60 h-60 bg-white/20 rounded-full blur-3xl" />
         </motion.div>
         
         <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:py-16 lg:px-8 lg:flex lg:items-center lg:justify-between relative z-10">
@@ -357,7 +357,7 @@ const Landing = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3, duration: 0.5 }}
-              className="block text-primary-200"
+              className="block text-primary-100"
             >
             </motion.span>
           </motion.h2>
@@ -367,7 +367,7 @@ const Landing = () => {
             className="mt-8 flex lg:mt-0 lg:flex-shrink-0"
           >
             <Link to="/register">
-              <ShinyButton primary={false} className="py-3 px-6 text-base bg-white text-primary-700 hover:bg-primary-50">
+              <ShinyButton primary={false} className="py-3 px-6 text-base bg-white text-primary-600 hover:bg-primary-50">
                 Comenzar gratis
               </ShinyButton>
             </Link>
@@ -381,12 +381,12 @@ const Landing = () => {
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true }}
-        className="bg-neutral-900 border-t border-neutral-800"
+        className="bg-neutral-100 border-t border-neutral-200"
       >
         <div className="max-w-7xl mx-auto py-12 px-4 overflow-hidden sm:px-6 lg:px-8">
           <motion.p 
             variants={fadeInUp}
-            className="mt-8 text-center text-base text-neutral-400"
+            className="mt-8 text-center text-base text-neutral-500"
           >
             &copy; {new Date().getFullYear()} Prompt2Course. Todos los derechos reservados.
           </motion.p>
