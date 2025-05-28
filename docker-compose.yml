@@ -1,7 +1,7 @@
 services:
   backend:
     build: ./backend
-    container_name: skills-hub-backend
+    container_name: p2c-backend
     ports:
       - "8000:8000"
     volumes:
@@ -15,7 +15,7 @@ services:
 
   frontend:
     build: ./frontend
-    container_name: skills-hub-frontend
+    container_name: p2c-frontend
     ports:
       - "3000:3000"
     depends_on:

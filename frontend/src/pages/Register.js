@@ -89,7 +89,7 @@ const Register = () => {
     if (success) {
       setSuccess(true);
       setTimeout(() => {
-        navigate('/login');
+        navigate('/dashboard');
       }, 2000);
     } else {
       setIsSubmitting(false);
@@ -187,7 +187,7 @@ const Register = () => {
               className="mb-6 bg-green-50 border-l-4 border-green-500 text-green-700 p-4 rounded-lg"
               role="alert"
             >
-              <span>Registro exitoso. Redirigiendo al inicio de sesión...</span>
+              <span>¡Registro exitoso! Redirigiendo al dashboard...</span>
             </motion.div>
           )}
           

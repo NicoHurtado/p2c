@@ -76,11 +76,30 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     
     try {
+      // First, register the user
       await axios.post(`${API_URL}/api/auth/register`, {
         username,
         email,
         password
       });
+      
+      // Then, automatically log them in
+      const formData = new FormData();
+      formData.append('username', username);
+      formData.append('password', password);
+      
+      const loginResponse = await axios.post(`${API_URL}/api/auth/token`, formData);
+      
+      localStorage.setItem('token', loginResponse.data.access_token);
+      
+      // Fetch user details
+      const userResponse = await axios.get(`${API_URL}/api/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${loginResponse.data.access_token}`
+        }
+      });
+      
+      setUser(userResponse.data);
       
       return true;
     } catch (err) {
