@@ -1,15 +1,16 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useAnimation } from 'framer-motion';
-import { FiArrowRight, FiClock, FiBookOpen, FiSave, FiSearch } from 'react-icons/fi';
+import { FiArrowRight, FiClock, FiBookOpen, FiSave, FiSearch, FiStar, FiUser, FiMessageCircle } from 'react-icons/fi';
 
-// Import our new components
+// Import components
 import TextScramble from '../components/TextScramble';
 import GlowingOrb from '../components/GlowingOrb';
 import TextCycler from '../components/TextCycler';
 import ShinyButton from '../components/ShinyButton';
 import BackgroundGrid from '../components/BackgroundGrid';
 import AnimatedSearch from '../components/AnimatedSearch';
+import Navbar from '../components/Navbar';
 
 // Animation variants
 const fadeIn = {
@@ -76,46 +77,8 @@ const Landing = () => {
       {/* Background Grid */}
       <BackgroundGrid dotColor="rgba(0, 0, 0, 0.1)" dotSpacing={30} />
       
-      {/* Header/Navigation */}
-      <motion.header 
-        variants={fadeIn}
-        transition={{ duration: 0.5 }}
-        className="bg-white/70 backdrop-blur-lg sticky top-0 z-10 border-b border-neutral-200"
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <motion.div 
-              variants={slideInFromLeft}
-              transition={{ duration: 0.6 }}
-              className="flex-shrink-0 flex items-center"
-            >
-              <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary-500 to-primary-700">
-                <TextScramble text="Prompt2Course" delay={300} duration={1500} />
-              </h1>
-            </motion.div>
-            <motion.div 
-              variants={slideInFromRight}
-              transition={{ duration: 0.6 }}
-              className="flex items-center space-x-4"
-            >
-              <Link to="/login">
-                <motion.button 
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="px-4 py-2 rounded-xl bg-transparent border border-neutral-300 text-neutral-700 hover:bg-neutral-100 transition-all"
-                >
-                  Iniciar sesión
-                </motion.button>
-              </Link>
-              <Link to="/register">
-                <ShinyButton primary className="text-white">
-                  Registrarse
-                </ShinyButton>
-              </Link>
-            </motion.div>
-          </div>
-        </div>
-      </motion.header>
+      {/* Navbar */}
+      <Navbar />
 
       {/* Hero Section */}
       <section className="relative">
@@ -203,6 +166,69 @@ const Landing = () => {
                 <AnimatedSearch />
               </motion.div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Cómo funciona Section */}
+      <section id="como-funciona" className="py-20 bg-neutral-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+            className="text-center mb-16"
+          >
+            <motion.h2 
+              variants={fadeInUp}
+              className="text-3xl sm:text-4xl font-bold text-neutral-900 mb-4"
+            >
+              Cómo funciona la IA en tu aprendizaje
+            </motion.h2>
+            <motion.p 
+              variants={fadeInUp}
+              className="text-lg text-neutral-600 max-w-2xl mx-auto"
+            >
+              Nuestra plataforma utiliza inteligencia artificial avanzada para crear
+              una experiencia de aprendizaje única y personalizada.
+            </motion.p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              {
+                icon: FiUser,
+                title: "Perfil personalizado",
+                description: "La IA analiza tus objetivos, nivel y estilo de aprendizaje"
+              },
+              {
+                icon: FiBookOpen,
+                title: "Contenido adaptativo",
+                description: "Cursos que se ajustan a tu ritmo y necesidades específicas"
+              },
+              {
+                icon: FiClock,
+                title: "Aprendizaje eficiente",
+                description: "Optimiza tu tiempo con lecciones enfocadas en tus metas"
+              }
+            ].map((item, index) => (
+              <motion.div
+                key={index}
+                variants={fadeInUp}
+                className="bg-white p-6 rounded-2xl shadow-lg"
+              >
+                <div className="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center mb-4 mx-auto">
+                  <item.icon className="w-6 h-6 text-primary-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-neutral-900 mb-2">
+                  {item.title}
+                </h3>
+                <p className="text-neutral-600">
+                  {item.description}
+                </p>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
@@ -327,6 +353,78 @@ const Landing = () => {
         </div>
       </motion.section>
 
+      {/* Testimonios Section */}
+      <section id="testimonios" className="py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+            className="text-center mb-16"
+          >
+            <motion.h2 
+              variants={fadeInUp}
+              className="text-3xl sm:text-4xl font-bold text-neutral-900 mb-4"
+            >
+              Lo que dicen nuestros estudiantes
+            </motion.h2>
+            <motion.p 
+              variants={fadeInUp}
+              className="text-lg text-neutral-600 max-w-2xl mx-auto"
+            >
+              Descubre cómo Prompt2Course está transformando la educación online
+            </motion.p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              {
+                name: "Ana García",
+                role: "Estudiante de Marketing Digital",
+                content: "La personalización del contenido es increíble. Cada lección se adapta perfectamente a mi nivel y objetivos.",
+                avatar: "AG"
+              },
+              {
+                name: "Carlos Rodríguez",
+                role: "Desarrollador Frontend",
+                content: "La IA realmente entiende cómo aprendo mejor. Los cursos son eficientes y muy prácticos.",
+                avatar: "CR"
+              },
+              {
+                name: "María López",
+                role: "Diseñadora UX/UI",
+                content: "Prompt2Course me ayudó a mejorar mis habilidades de diseño de manera estructurada y efectiva.",
+                avatar: "ML"
+              }
+            ].map((testimonial, index) => (
+              <motion.div
+                key={index}
+                variants={fadeInUp}
+                className="bg-white p-6 rounded-2xl shadow-lg"
+              >
+                <div className="flex items-center mb-4">
+                  <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center text-primary-700 font-semibold">
+                    {testimonial.avatar}
+                  </div>
+                  <div className="ml-4">
+                    <h4 className="text-lg font-semibold text-neutral-900">
+                      {testimonial.name}
+                    </h4>
+                    <p className="text-sm text-neutral-600">
+                      {testimonial.role}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-neutral-700">
+                  {testimonial.content}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <motion.section 
         initial="hidden"
@@ -335,40 +433,33 @@ const Landing = () => {
         variants={fadeIn}
         className="bg-gradient-to-r from-primary-500 to-primary-600 relative overflow-hidden"
       >
-        {/* Background shine effect */}
-        <motion.div 
-          className="absolute inset-0 overflow-hidden"
-          initial={{ opacity: 0.2 }}
-          animate={{ opacity: 0.5 }}
-          transition={{ duration: 8, repeat: Infinity, repeatType: 'reverse' }}
-        >
-          <div className="absolute top-1/4 -right-20 w-80 h-80 bg-white/30 rounded-full blur-3xl" />
+        <div className="absolute inset-0 overflow-hidden">
+          <motion.div 
+            className="absolute top-1/4 -right-20 w-80 h-80 bg-white/30 rounded-full blur-3xl"
+            initial={{ opacity: 0.2 }}
+            animate={{ opacity: 0.5 }}
+            transition={{ duration: 8, repeat: Infinity, repeatType: 'reverse' }}
+          />
           <div className="absolute bottom-1/4 -left-20 w-60 h-60 bg-white/20 rounded-full blur-3xl" />
-        </motion.div>
+        </div>
         
         <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:py-16 lg:px-8 lg:flex lg:items-center lg:justify-between relative z-10">
           <motion.h2 
             variants={slideInFromLeft}
-            transition={{ duration: 0.5 }}
             className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl"
           >
-            <span className="block">¿Listo para aprender?</span>
-            <motion.span 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3, duration: 0.5 }}
-              className="block text-primary-100"
-            >
-            </motion.span>
+            <span className="block">¿Listo para comenzar?</span>
+            <span className="block text-primary-100">
+              Únete a nuestra comunidad de aprendizaje
+            </span>
           </motion.h2>
           <motion.div 
             variants={slideInFromRight}
-            transition={{ duration: 0.5 }}
             className="mt-8 flex lg:mt-0 lg:flex-shrink-0"
           >
             <Link to="/register">
-              <ShinyButton primary={false} className="py-3 px-6 text-base bg-white text-primary-600 hover:bg-primary-50">
-                Comenzar gratis
+              <ShinyButton primary={false} className="px-8 py-3 bg-white text-primary-600 hover:bg-primary-50">
+                Comenzar ahora
               </ShinyButton>
             </Link>
           </motion.div>
