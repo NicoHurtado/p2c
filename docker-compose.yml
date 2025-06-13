@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # API Principal
+  prompt2course-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=development
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=INFO
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    restart: unless-stopped
+    networks:
+      - prompt2course-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - prompt2course-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis Commander (GUI para Redis)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - prompt2course-network
+    profiles:
+      - development
+
+volumes:
+  redis_data:
+
+networks:
+  prompt2course-network:
+    driver: bridge 
