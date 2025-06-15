@@ -193,7 +193,7 @@ api_keys.json
 # Project specific
 courses_generated/
 test_courses/
-sample_data/
+sample_data/ 
 
 # Node.js
 node_modules/

@@ -30,10 +30,15 @@ function App() {
       }
 
       const data = await response.json();
+      console.log('📚 Course data received:', data);
+      console.log('📚 Course ID:', data.course_id);
+      console.log('📚 Metadata:', data.metadata);
+      
       setCourseData(data);
       
       // Simular un pequeño delay para mostrar la animación de carga
       setTimeout(() => {
+        console.log('📚 Transitioning to course display step');
         setCurrentStep('course');
         setIsGenerating(false);
       }, 1500);

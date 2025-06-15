@@ -90,32 +90,6 @@ python -m uvicorn app.main:app --reload
 
 ## ⚙️ Configuración
 
-### Variables de Entorno Requeridas
-
-```env
-# MongoDB Atlas
-MONGODB_ATLAS_URI=mongodb+srv://user:pass@cluster.mongodb.net/prompt2course
-
-# AI Services
-CLAUDE_API_KEY=sk-ant-your-key
-ELEVENLABS_API_KEY=your-elevenlabs-key
-
-# YouTube API
-YOUTUBE_DATA_API_KEY=your-youtube-key
-
-# AWS S3
-AWS_ACCESS_KEY_ID=your-aws-key
-AWS_SECRET_ACCESS_KEY=your-aws-secret
-AWS_S3_BUCKET=your-bucket
-AWS_REGION=us-east-1
-
-# Redis
-REDIS_URL=redis://localhost:6379
-
-# Application
-SECRET_KEY=your-secret-key
-```
-
 ### Servicios Externos Necesarios
 
 1. **MongoDB Atlas** - Base de datos principal

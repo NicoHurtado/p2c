@@ -38,10 +38,37 @@ const ModuleViewer = ({ courseId, moduleIndex, totalModules, onBack, onNextModul
         const module = courseData.modules[moduleIndex];
         
         if (!module) {
-          // Si el módulo no existe, generarlo bajo demanda
-          console.log(`Módulo ${moduleIndex + 1} no existe, generando...`);
+          // Si el módulo no existe, podría estar siendo generado en background
+          console.log(`Módulo ${moduleIndex + 1} no disponible aún, verificando generación en background...`);
           setIsGenerating(true);
           
+          // Check if background generation is in progress
+          let attempts = 0;
+          const maxAttempts = 30; // Wait up to 1 minute (2s * 30)
+          
+          while (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+            
+            const retryResponse = await fetch(`/api/courses/${courseId}`);
+            if (retryResponse.ok) {
+              const retryData = await retryResponse.json();
+              const retryModule = retryData.modules[moduleIndex];
+              
+              if (retryModule) {
+                console.log(`✅ Módulo ${moduleIndex + 1} ahora disponible!`);
+                setModuleData(retryModule);
+                setIsGenerating(false);
+                break;
+              }
+            }
+            
+            attempts++;
+            console.log(`Esperando módulo ${moduleIndex + 1}... intento ${attempts}/${maxAttempts}`);
+          }
+          
+          // If still not available after waiting, try on-demand generation as fallback
+          if (!moduleData && attempts >= maxAttempts) {
+            console.log(`Módulo ${moduleIndex + 1} no disponible después de esperar, generando bajo demanda...`);
           const generateResponse = await fetch(`/api/courses/${courseId}/generate-module/${moduleIndex}`, {
             method: 'POST'
           });
@@ -53,6 +80,7 @@ const ModuleViewer = ({ courseId, moduleIndex, totalModules, onBack, onNextModul
           const generateData = await generateResponse.json();
           setModuleData(generateData.module);
           setIsGenerating(false);
+          }
         } else {
           setModuleData(module);
         }
@@ -90,14 +118,27 @@ const ModuleViewer = ({ courseId, moduleIndex, totalModules, onBack, onNextModul
             <div className="loading-spinner" style={{ margin: '0 auto 1rem', width: '40px', height: '40px' }}></div>
             <p className="text-gray-600">
               {isGenerating 
-                ? `🤖 Generando módulo ${moduleIndex + 1} con IA...` 
+                ? `🚀 Módulo ${moduleIndex + 1} generándose en segundo plano...` 
                 : 'Cargando módulo...'
               }
             </p>
             {isGenerating && (
+              <div>
               <p style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.5rem' }}>
-                Esto puede tomar unos segundos mientras Claude crea el contenido personalizado
+                  ⚡ Gracias por tu paciencia mientras Claude crea contenido personalizado
               </p>
+                <div style={{ 
+                  marginTop: '1rem', 
+                  padding: '1rem', 
+                  background: '#f0f9ff', 
+                  borderRadius: '8px',
+                  border: '1px solid #0ea5e9'
+                }}>
+                  <p style={{ fontSize: '0.875rem', color: '#0369a1', margin: 0 }}>
+                    💡 <strong>Tip:</strong> Los próximos módulos se cargarán instantáneamente gracias a la generación en segundo plano
+                  </p>
+                </div>
+              </div>
             )}
           </div>
         </div>

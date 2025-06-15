@@ -14,9 +14,25 @@ import {
 } from 'lucide-react';
 
 const CourseDisplay = ({ courseData, onStartNew, onModuleStart }) => {
+  // Debug logging
+  console.log('🎯 CourseDisplay received courseData:', courseData);
+  
   // Destructure from courseData structure returned by backend
   const { course_id, metadata, status } = courseData;
   const { title, description, level, total_modules, module_list, topics } = metadata || {};
+  
+  console.log('🎯 Extracted data:', { course_id, title, total_modules, status });
+
+  // Safety check - if no courseData, show loading state
+  if (!courseData) {
+    return (
+      <div className="course-display">
+        <div className="container text-center" style={{ padding: '3rem' }}>
+          <p className="text-gray-600">Cargando datos del curso...</p>
+        </div>
+      </div>
+    );
+  }
 
   const levelConfig = {
     principiante: { label: "Principiante", color: "#10b981", icon: "🌱" },
@@ -25,6 +41,58 @@ const CourseDisplay = ({ courseData, onStartNew, onModuleStart }) => {
   };
 
   const currentLevelConfig = levelConfig[level] || levelConfig.principiante;
+
+  const handleStartCourse = async () => {
+    try {
+      // Call the new start-course endpoint to trigger background generation
+      const response = await fetch(`/api/courses/${course_id}/start-course`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (response.ok) {
+        console.log('🚀 Background generation of all modules initiated');
+        // Show a brief notification to user
+        const notification = document.createElement('div');
+        notification.innerHTML = '🚀 ¡Perfecto! Todos los módulos se están generando en segundo plano para una experiencia sin esperas.';
+        notification.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: white;
+          padding: 1rem 1.5rem;
+          border-radius: 8px;
+          box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+          z-index: 9999;
+          max-width: 400px;
+          font-size: 0.875rem;
+          font-weight: 500;
+        `;
+        document.body.appendChild(notification);
+        
+        // Remove notification after 4 seconds
+        setTimeout(() => {
+          if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+          }
+        }, 4000);
+      }
+      
+      // Start the first module
+      if (onModuleStart) {
+        onModuleStart(0);
+      }
+    } catch (error) {
+      console.error('Error starting course:', error);
+      // Fallback: just start the module normally
+      if (onModuleStart) {
+        onModuleStart(0);
+      }
+    }
+  };
 
   return (
     <div className="course-display">
@@ -293,7 +361,7 @@ const CourseDisplay = ({ courseData, onStartNew, onModuleStart }) => {
           }}
         >
           <button 
-            onClick={() => onModuleStart && onModuleStart(0)}
+            onClick={handleStartCourse}
             className="btn btn-primary btn-lg"
           >
             <CheckCircle size={20} />

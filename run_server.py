@@ -21,13 +21,12 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 def setup_logging():
-    """Configurar logging"""
+    """Configurar logging - Solo consola, sin archivos"""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[
-            logging.StreamHandler(sys.stdout),
-            logging.FileHandler("prompt2course.log")
+            logging.StreamHandler(sys.stdout)
         ]
     )
 
@@ -70,10 +69,6 @@ def check_environment():
         for var in missing_vars:
             print(f"   - {var}")
         print("\n💡 Verifica que el archivo .env tenga estas variables configuradas")
-        print("💡 Ejemplo:")
-        print("   MONGODB_ATLAS_URI=mongodb+srv://user:pass@cluster.mongodb.net/...")
-        print("   CLAUDE_API_KEY=sk-ant-...")
-        print("   SECRET_KEY=tu-clave-secreta-larga")
         sys.exit(1)
     
     print("✅ Todas las variables de entorno están configuradas")
