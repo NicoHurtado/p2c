@@ -17,6 +17,8 @@ function App() {
     setCurrentStep('loading');
 
     try {
+      console.log('📤 Enviando petición con datos:', formData);
+      
       const response = await fetch('/api/courses/generate', {
         method: 'POST',
         headers: {
@@ -25,8 +27,36 @@ function App() {
         body: JSON.stringify(formData),
       });
 
+      console.log('📥 Respuesta recibida:', response.status, response.statusText);
+
       if (!response.ok) {
-        throw new Error('Error generating course');
+        // Intentar obtener el mensaje de error específico
+        let errorMessage = 'Error generando el curso';
+        try {
+          const errorData = await response.json();
+          console.error('❌ Error del servidor:', errorData);
+          
+          if (response.status === 422) {
+            errorMessage = 'Error de validación: ';
+            if (errorData.detail) {
+              if (typeof errorData.detail === 'string') {
+                errorMessage += errorData.detail;
+              } else if (Array.isArray(errorData.detail)) {
+                errorMessage += errorData.detail.map(err => err.msg).join(', ');
+              } else {
+                errorMessage += 'Datos del formulario inválidos';
+              }
+            } else {
+              errorMessage += 'Por favor verifica que todos los campos estén completos y correctos';
+            }
+          } else {
+            errorMessage = errorData.detail || errorData.message || errorMessage;
+          }
+        } catch (parseError) {
+          console.error('❌ Error parseando respuesta de error:', parseError);
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
@@ -34,20 +64,30 @@ function App() {
       console.log('📚 Course ID:', data.course_id);
       console.log('📚 Metadata:', data.metadata);
       
-      setCourseData(data);
+      // Verificar que tenemos los datos necesarios
+      if (!data.course_id || !data.metadata) {
+        throw new Error('Respuesta incompleta del servidor');
+      }
       
-      // Simular un pequeño delay para mostrar la animación de carga
+      setCourseData(data);
+      console.log('📚 Course data set in state');
+      
+      // Reducir el delay y agregar más logging
       setTimeout(() => {
-        console.log('📚 Transitioning to course display step');
+        console.log('📚 About to transition to course display step');
+        console.log('📚 Current courseData:', data);
         setCurrentStep('course');
         setIsGenerating(false);
-      }, 1500);
+        console.log('📚 Transition completed - should now show course');
+      }, 800); // Reducido de 1500 a 800ms
 
     } catch (error) {
-      console.error('Error:', error);
+      console.error('❌ Error completo:', error);
       setIsGenerating(false);
       setCurrentStep('form');
-      alert('Hubo un error generando el curso. Por favor intenta de nuevo.');
+      
+      // Mostrar mensaje de error más específico
+      alert(`❌ ${error.message}\n\nPor favor verifica:\n• Que la descripción no esté vacía\n• Que hayas seleccionado un nivel\n• Que tengas conexión a internet`);
     }
   };
 
@@ -81,6 +121,14 @@ function App() {
     }
   };
 
+  const handleForceComplete = () => {
+    console.log('🔧 Force completing with courseData:', courseData);
+    if (courseData) {
+      setCurrentStep('course');
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <div className="App">
       <Header />
@@ -107,7 +155,7 @@ function App() {
               exit={{ opacity: 0, scale: 1.1 }}
               transition={{ duration: 0.6 }}
             >
-              <LoadingScreen />
+              <LoadingScreen onForceComplete={courseData ? handleForceComplete : null} />
             </motion.div>
           )}
 

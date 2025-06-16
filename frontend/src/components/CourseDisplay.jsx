@@ -18,13 +18,18 @@ const CourseDisplay = ({ courseData, onStartNew, onModuleStart }) => {
   console.log('🎯 CourseDisplay received courseData:', courseData);
   
   // Destructure from courseData structure returned by backend
-  const { course_id, metadata, status } = courseData;
+  const { course_id, metadata, status } = courseData || {};
   const { title, description, level, total_modules, module_list, topics } = metadata || {};
   
   console.log('🎯 Extracted data:', { course_id, title, total_modules, status });
+  console.log('🎯 Title length:', title ? title.length : 'NO TITLE');
+  console.log('🎯 Description length:', description ? description.length : 'NO DESCRIPTION');
+  console.log('🎯 Module list:', module_list);
+  console.log('🎯 Topics:', topics);
 
   // Safety check - if no courseData, show loading state
   if (!courseData) {
+    console.log('🎯 No courseData - showing loading state');
     return (
       <div className="course-display">
         <div className="container text-center" style={{ padding: '3rem' }}>
@@ -33,6 +38,37 @@ const CourseDisplay = ({ courseData, onStartNew, onModuleStart }) => {
       </div>
     );
   }
+
+  // Additional safety checks
+  if (!metadata) {
+    console.log('🎯 No metadata - showing error state');
+    return (
+      <div className="course-display">
+        <div className="container text-center" style={{ padding: '3rem' }}>
+          <p className="text-red-600">Error: No se pudieron cargar los metadatos del curso</p>
+          <button onClick={onStartNew} className="btn btn-secondary" style={{ marginTop: '1rem' }}>
+            Crear Nuevo Curso
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!title) {
+    console.log('🎯 No title - showing error state');
+    return (
+      <div className="course-display">
+        <div className="container text-center" style={{ padding: '3rem' }}>
+          <p className="text-red-600">Error: No se pudo generar el título del curso</p>
+          <button onClick={onStartNew} className="btn btn-secondary" style={{ marginTop: '1rem' }}>
+            Crear Nuevo Curso
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  console.log('🎯 All validations passed - rendering course display');
 
   const levelConfig = {
     principiante: { label: "Principiante", color: "#10b981", icon: "🌱" },

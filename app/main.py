@@ -1,9 +1,11 @@
 import logging
 import uvicorn
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+import time
+import json
 
 from .core.config import get_settings
 from .core.database import init_database, close_database
@@ -125,6 +127,24 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
+
+# Add request logging middleware for debugging
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    
+    # Log request details
+    logger.info(f"🔥 {request.method} {request.url}")
+    logger.info(f"🔥 Headers: {dict(request.headers)}")
+    
+    # Process the request
+    response = await call_next(request)
+    
+    # Log response details
+    process_time = time.time() - start_time
+    logger.info(f"🔥 Response status: {response.status_code} (took {process_time:.2f}s)")
+    
+    return response
 
 # Include routers
 app.include_router(courses_router)

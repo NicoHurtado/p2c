@@ -30,16 +30,77 @@ async def generate_course(
     Content generation continues asynchronously.
     """
     try:
+        # Log the incoming request for debugging
+        logger.info(f"Received course generation request from user {user_id}")
+        logger.info(f"Request data: {request.dict()}")
+        
+        # Additional validation
+        if not request.prompt or len(request.prompt.strip()) < 1:
+            logger.error(f"Invalid prompt: '{request.prompt}' (length: {len(request.prompt) if request.prompt else 0})")
+            raise HTTPException(
+                status_code=422, 
+                detail="El prompt no puede estar vacío"
+            )
+        
+        if not request.level or request.level not in ["principiante", "intermedio", "avanzado"]:
+            logger.error(f"Invalid level: '{request.level}'")
+            raise HTTPException(
+                status_code=422, 
+                detail="El nivel debe ser 'principiante', 'intermedio' o 'avanzado'"
+            )
+        
+        if not request.interests or len(request.interests) == 0:
+            logger.error(f"Invalid interests: {request.interests}")
+            raise HTTPException(
+                status_code=422, 
+                detail="Debe incluir al menos un interés"
+            )
+        
         response = await course_service.generate_course_fast_response(
             request, user_id
         )
+        
+        logger.info(f"Successfully generated course {response.course_id} for user {user_id}")
         return response
         
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"Validation error in course generation: {str(e)}")
+        raise HTTPException(
+            status_code=422, 
+            detail=f"Error de validación: {str(e)}"
+        )
     except Exception as e:
-        logger.error(f"Error generating course: {str(e)}")
+        logger.error(f"Error generating course: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500, 
-            detail=f"Error generating course: {str(e)}"
+            detail=f"Error interno del servidor: {str(e)}"
+        )
+
+
+@router.post("/test-validation")
+async def test_validation(request: CourseGenerationRequest):
+    """
+    Test endpoint to validate request format without generating a course
+    """
+    try:
+        return {
+            "status": "valid",
+            "message": "Request format is correct",
+            "received_data": {
+                "prompt": request.prompt,
+                "level": request.level,
+                "interests": request.interests,
+                "prompt_length": len(request.prompt),
+                "interests_count": len(request.interests)
+            }
+        }
+    except Exception as e:
+        logger.error(f"Validation test error: {str(e)}")
+        raise HTTPException(
+            status_code=422,
+            detail=f"Validation error: {str(e)}"
         )
 
 
@@ -323,3 +384,68 @@ async def get_cost_optimization_stats():
             status_code=500,
             detail=f"Error retrieving cost statistics: {str(e)}"
         ) 
+
+
+@router.post("/debug-request")
+async def debug_request(request_data: dict):
+    """
+    Debug endpoint to see exactly what data is being sent
+    """
+    try:
+        logger.info(f"🐛 DEBUG: Raw request data received: {request_data}")
+        logger.info(f"🐛 DEBUG: Data type: {type(request_data)}")
+        logger.info(f"🐛 DEBUG: Data keys: {list(request_data.keys()) if isinstance(request_data, dict) else 'Not a dict'}")
+        
+        # Try to validate as CourseGenerationRequest
+        try:
+            validated_request = CourseGenerationRequest(**request_data)
+            logger.info(f"🐛 DEBUG: Successfully validated as CourseGenerationRequest: {validated_request.dict()}")
+            return {
+                "status": "success",
+                "message": "Data is valid",
+                "validated_data": validated_request.dict()
+            }
+        except Exception as validation_error:
+            logger.error(f"🐛 DEBUG: Validation failed: {str(validation_error)}")
+            return {
+                "status": "validation_error",
+                "message": str(validation_error),
+                "raw_data": request_data
+            }
+            
+    except Exception as e:
+        logger.error(f"🐛 DEBUG: Unexpected error: {str(e)}")
+        return {
+            "status": "error",
+            "message": str(e),
+            "raw_data": request_data if 'request_data' in locals() else "Unknown"
+        } 
+
+
+@router.get("/debug-errors")
+async def debug_recent_errors():
+    """
+    Show recent errors and request patterns
+    """
+    try:
+        # Get recent log entries (this is a simplified version)
+        import datetime
+        
+        return {
+            "message": "Check server logs for detailed error information",
+            "timestamp": datetime.datetime.now().isoformat(),
+            "tips": [
+                "Error 422 usually means validation failed",
+                "Check that 'prompt' is not empty",
+                "Check that 'level' is 'principiante', 'intermedio', or 'avanzado'",
+                "Check that 'interests' is a non-empty array",
+                "Check that JSON format is correct"
+            ],
+            "example_valid_request": {
+                "prompt": "Quiero aprender Python para desarrollar aplicaciones web",
+                "level": "principiante",
+                "interests": ["programación", "web", "python"]
+            }
+        }
+    except Exception as e:
+        return {"error": str(e)} 

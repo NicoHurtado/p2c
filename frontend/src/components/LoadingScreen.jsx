@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Brain, BookOpen, Sparkles, Lightbulb, Target, Zap } from 'lucide-react';
 
-const LoadingScreen = () => {
+const LoadingScreen = ({ onForceComplete }) => {
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -181,6 +181,31 @@ const LoadingScreen = () => {
               <strong>¿Sabías que?</strong> Los cursos personalizados mejoran el aprendizaje hasta en un 80%
             </div>
           </motion.div>
+
+          {/* Debug button - temporal */}
+          {onForceComplete && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 3, duration: 0.5 }}
+              style={{ marginTop: '2rem' }}
+            >
+              <button
+                onClick={onForceComplete}
+                style={{
+                  background: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  cursor: 'pointer'
+                }}
+              >
+                🔧 Forzar completar (DEBUG)
+              </button>
+            </motion.div>
+          )}
         </div>
       </div>
     </div>

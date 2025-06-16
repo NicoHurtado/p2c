@@ -145,7 +145,7 @@ class Course(BaseModel):
 
 # Request/Response models for API
 class CourseGenerationRequest(BaseModel):
-    prompt: str = Field(min_length=10, max_length=500)
+    prompt: str = Field(min_length=1, max_length=500)
     level: CourseLevel
     interests: List[str] = Field(min_items=1, max_items=10)
 

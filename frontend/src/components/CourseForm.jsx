@@ -43,16 +43,32 @@ const CourseForm = ({ onSubmit, isLoading }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.prompt.trim()) {
+    
+    // Validación más estricta
+    const trimmedPrompt = formData.prompt.trim();
+    
+    if (!trimmedPrompt) {
       alert('Por favor describe qué quieres aprender');
       return;
     }
     
+    if (!formData.level || !['principiante', 'intermedio', 'avanzado'].includes(formData.level)) {
+      alert('Por favor selecciona un nivel válido');
+      return;
+    }
+    
     // Asegurar que hay al menos un interés
+    const finalInterests = formData.interests.length > 0 ? formData.interests : ['aprendizaje'];
+    
     const finalFormData = {
-      ...formData,
-      interests: formData.interests.length > 0 ? formData.interests : ['aprendizaje']
+      prompt: trimmedPrompt,
+      level: formData.level,
+      interests: finalInterests
     };
+    
+    // Log para debugging
+    console.log('📤 Enviando datos del formulario:', finalFormData);
+    console.log('📤 Tamaño del JSON:', JSON.stringify(finalFormData).length, 'bytes');
     
     onSubmit(finalFormData);
   };

@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     aws_region: str = Field(default="us-east-1", env="AWS_REGION")
     
     # Redis
-    redis_url: str = Field(default="redis://localhost:6379", env="REDIS_URL")
+    redis_url: str = Field(default="redis://invalid:6379", env="REDIS_URL")
     
     # Course Generation Settings
     max_chunk_size: int = 2000
