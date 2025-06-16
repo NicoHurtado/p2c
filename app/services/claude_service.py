@@ -3,7 +3,7 @@ import re
 import logging
 from typing import Dict, List
 from anthropic import AsyncAnthropic
-from ..models.course import CourseMetadata, CourseLevel, Module, ModuleChunk, FinalProject
+from ..models.course import CourseMetadata, CourseLevel, Module, ModuleChunk, FinalProject, PracticalExercise
 from ..core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -72,60 +72,132 @@ class ClaudeService:
         level: CourseLevel, 
         interests: List[str]
     ) -> CourseMetadata:
-        """Generate course metadata using Claude with COST-OPTIMIZED prompts"""
+        """Generate course metadata with STRICT level-appropriate structure"""
         
-        # 🚀 COST OPTIMIZATION: Shorter, more direct prompt with same output quality
-        prompt = f"""Diseña metadatos para curso: "{user_prompt}"
-Nivel: {level}, Intereses: {interests}
+        # 🚨 CRITICAL: Different course structures for different levels
+        if level == CourseLevel.PRINCIPIANTE:
+            level_specific_prompt = f"""Diseña curso PARA ABSOLUTOS PRINCIPIANTES: "{user_prompt}"
+
+RESTRICCIONES ESTRICTAS PARA PRINCIPIANTES:
+- NO mencionar: algoritmos complejos, estructuras de datos avanzadas, frameworks, APIs, bases de datos
+- SÍ incluir: conceptos básicos, fundamentos, primeros pasos, práctica básica
+- Enfoque en conceptos fundamentales que un principiante REALMENTE necesita
+- Duración total: máximo 8 horas (2 horas por módulo)
+
+EJEMPLO CORRECTO para "programación":
+- Módulo 1: "Primeros Pasos y Conceptos Básicos"
+- Módulo 2: "Variables y Operaciones Simples" 
+- Módulo 3: "Tomando Decisiones con Código"
+- Módulo 4: "Tu Primer Programa Completo"
+
+EJEMPLO INCORRECTO ❌:
+- NO: "Estructuras de Datos"
+- NO: "Algoritmos y Complejidad"
+- NO: "APIs y Frameworks"
+- NO: "Bases de Datos"
 
 JSON exacto:
 {{
-    "title": "título atractivo conectado con intereses",
-    "description": "descripción max 800 chars conectada con intereses",
-    "level": "{level}",
+    "title": "Introducción a {user_prompt} para Principiantes",
+    "description": "Curso diseñado especialmente para personas sin experiencia previa. Aprende {user_prompt} desde cero con explicaciones simples y ejemplos prácticos.",
+    "level": "principiante",
     "estimated_duration": 8,
-    "prerequisites": ["Requisito 1", "Requisito 2"],
-    "total_modules": 5,
-    "module_list": ["Módulo 1", "Módulo 2", "Módulo 3", "Módulo 4", "Módulo 5"],
-    "topics": ["tema1", "tema2", "tema3", "tema4"],
-    "total_size": "tamaño estimado"
-}}
+    "prerequisites": ["Ninguna experiencia previa necesaria", "Ganas de aprender"],
+    "total_modules": 4,
+    "module_list": ["[CREAR 4 MÓDULOS BÁSICOS Y FUNDAMENTALES]"],
+    "topics": ["conceptos-basicos", "fundamentos", "practica-simple", "primer-proyecto"],
+    "total_size": "~300KB contenido introductorio"
+}}"""
 
-Requisitos:
-- Conectar módulos con: {', '.join(interests)}
-- total_modules = len(module_list)
-- description max 800 chars
-- Solo JSON, sin explicaciones"""
+        elif level == CourseLevel.INTERMEDIO:
+            level_specific_prompt = f"""Diseña curso NIVEL INTERMEDIO: "{user_prompt}"
+
+PARA ESTUDIANTES CON CONOCIMIENTOS BÁSICOS:
+- Asume conocimiento de fundamentos
+- Introduce conceptos intermedios y mejores prácticas
+- Incluye proyectos más complejos
+- Duración: 10-12 horas
+
+JSON exacto:
+{{
+    "title": "Curso Intermedio de {user_prompt}",
+    "description": "Para estudiantes con conocimientos básicos. Desarrolla habilidades intermedias y aprende mejores prácticas en {user_prompt}.",
+    "level": "intermedio",
+    "estimated_duration": 12,
+    "prerequisites": ["Conocimientos básicos de {user_prompt}", "Experiencia con conceptos fundamentales"],
+    "total_modules": 4,
+    "module_list": ["[CREAR 4 MÓDULOS INTERMEDIOS]"],
+    "topics": ["conceptos-intermedios", "mejores-practicas", "proyectos", "optimizacion"],
+    "total_size": "~500KB contenido intermedio"
+}}"""
+
+        else:  # AVANZADO
+            level_specific_prompt = f"""Diseña curso NIVEL AVANZADO: "{user_prompt}"
+
+PARA PROFESIONALES Y EXPERTOS:
+- Asume conocimiento profundo de fundamentos e intermedios
+- Enfoque en técnicas avanzadas, arquitectura, optimización
+- Proyectos complejos y casos de estudio reales
+- Duración: 15+ horas
+
+JSON exacto:
+{{
+    "title": "Dominio Avanzado de {user_prompt}",
+    "description": "Para profesionales experimentados. Técnicas avanzadas, arquitectura y optimización en {user_prompt}.",
+    "level": "avanzado",
+    "estimated_duration": 16,
+    "prerequisites": ["Experiencia profesional en {user_prompt}", "Conocimiento de patrones de diseño"],
+    "total_modules": 4,
+    "module_list": ["[CREAR 4 MÓDULOS AVANZADOS]"],
+    "topics": ["arquitectura", "optimizacion", "patrones-avanzados", "casos-complejos"],
+    "total_size": "~800KB contenido avanzado"
+}}"""
+
+        prompt = level_specific_prompt + """
+
+CRÍTICO - GENERAR MÓDULOS ESPECÍFICOS AL NIVEL:
+- Cada módulo debe ser apropiado para el nivel especificado
+- NO mezclar conceptos de diferentes niveles
+- Estructura lógica y progresiva dentro del nivel
+- Solo JSON válido, sin texto adicional"""
         
         try:
             response = await self.client.messages.create(
                 model=self.model,
-                max_tokens=800,  # Reduced from 1000
+                max_tokens=800,
                 messages=[{"role": "user", "content": prompt}]
             )
             
             content = response.content[0].text.strip()
-            
-            # 🛡️ ROBUSTNESS: Use improved JSON fixing
             content = self.fix_malformed_json(content)
             
             try:
                 metadata_dict = json.loads(content)
+                
+                # 🚨 VALIDATION: Ensure level-appropriate content
+                if level == CourseLevel.PRINCIPIANTE:
+                    # Validate that beginner courses don't have advanced concepts
+                    forbidden_terms = ["algoritmo", "estructura de datos", "framework", "api", "base de datos", "optimización", "arquitectura"]
+                    module_list = metadata_dict.get("module_list", [])
+                    
+                    # Ensure module_list contains only strings
+                    if isinstance(module_list, list) and all(isinstance(item, str) for item in module_list):
+                        module_text = " ".join(module_list).lower()
+                        
+                        if any(term in module_text for term in forbidden_terms):
+                            logger.warning("🚨 Generated content too advanced for beginners, using fallback")
+                            return self._generate_fallback_metadata(user_prompt, level, interests)
+                    else:
+                        logger.warning("🚨 Invalid module_list format, using fallback")
+                        return self._generate_fallback_metadata(user_prompt, level, interests)
+                
                 return CourseMetadata(**metadata_dict)
             except json.JSONDecodeError as e:
-                logger.error(f"JSON parsing failed even after sanitization: {str(e)}")
-                logger.error(f"Problematic content: {content[:200]}...")
-                # Use fallback
+                logger.error(f"JSON parsing failed: {str(e)}")
                 return self._generate_fallback_metadata(user_prompt, level, interests)
                 
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON parsing error in course metadata: {str(e)}")
-            # 🔄 FALLBACK: Return basic metadata
-            return self._generate_fallback_metadata(user_prompt, level, interests)
-            
         except Exception as e:
             logger.error(f"Error generating course metadata: {str(e)}")
-            # Also use fallback for any other error
             return self._generate_fallback_metadata(user_prompt, level, interests)
     
     def sanitize_json_response(self, content: str) -> str:
@@ -201,39 +273,78 @@ Requisitos:
         return json_content
 
     def _generate_fallback_metadata(self, user_prompt: str, level: CourseLevel, interests: List[str]) -> CourseMetadata:
-        """Generate fallback metadata that meets all validation requirements"""
+        """Generate fallback metadata with STRICT level-appropriate course structure"""
         
-        # Create a description that meets the 150 character minimum
-        description = f"""Curso personalizado e integral sobre {user_prompt} diseñado específicamente para nivel {level.value}. 
-        Este programa completo te guiará paso a paso a través de conceptos fundamentales y aplicaciones prácticas, 
-        conectando todo el aprendizaje con tus intereses principales en {', '.join(interests[:3])}. 
-        Incluye ejercicios prácticos, casos de estudio reales y proyectos hands-on que te permitirán aplicar 
-        inmediatamente lo aprendido en contextos relacionados con tus áreas de interés."""
+        # Create level-appropriate title
+        if level == CourseLevel.PRINCIPIANTE:
+            title = f"Introducción a {user_prompt.title()} para Principiantes"
+            description = f"Curso diseñado especialmente para personas sin experiencia previa en {user_prompt}. Aprende desde cero con explicaciones simples, ejemplos prácticos y ejercicios guiados. No necesitas conocimientos previos, solo ganas de aprender."
+            duration = 8
+            prerequisites = ["Ninguna experiencia previa necesaria", "Ganas de aprender"]
+            
+            # STRICT beginner modules - NO advanced concepts
+            if "programación" in user_prompt.lower() or "python" in user_prompt.lower():
+                modules = [
+                    "Primeros Pasos y Conceptos Básicos",
+                    "Variables y Operaciones Simples",
+                    "Tomando Decisiones con Código",
+                    "Tu Primer Programa Completo"
+                ]
+                topics = ["conceptos-basicos", "variables", "decisiones", "primer-programa"]
+            else:
+                # Generic beginner structure
+                modules = [
+                    f"Primeros Pasos en {user_prompt.title()}",
+                    f"Conceptos Fundamentales",
+                    f"Práctica Básica",
+                    f"Tu Primer Proyecto"
+                ]
+                topics = ["primeros-pasos", "fundamentos", "practica-basica", "primer-proyecto"]
+            
+            size = "~300KB contenido introductorio"
+            
+        elif level == CourseLevel.INTERMEDIO:
+            title = f"Curso Intermedio de {user_prompt.title()}"
+            description = f"Para estudiantes con conocimientos básicos en {user_prompt}. Desarrolla habilidades intermedias, aprende mejores prácticas y técnicas avanzadas. Incluye proyectos prácticos y casos de estudio reales para consolidar tu aprendizaje."
+            duration = 12
+            prerequisites = [f"Conocimientos básicos de {user_prompt}", "Experiencia con conceptos fundamentales"]
+            
+            modules = [
+                f"Conceptos Intermedios de {user_prompt.title()}",
+                f"Mejores Prácticas y Técnicas",
+                f"Proyectos Prácticos",
+                f"Integración y Aplicaciones"
+            ]
+            topics = ["conceptos-intermedios", "mejores-practicas", "proyectos", "aplicaciones"]
+            size = "~500KB contenido intermedio"
+            
+        else:  # AVANZADO
+            title = f"Dominio Avanzado de {user_prompt.title()}"
+            description = f"Para profesionales experimentados en {user_prompt}. Técnicas avanzadas, arquitectura empresarial, optimización de rendimiento y patrones de diseño complejos. Incluye casos de estudio de nivel empresarial y proyectos desafiantes."
+            duration = 16
+            prerequisites = [f"Experiencia profesional en {user_prompt}", "Conocimiento de patrones de diseño"]
+            
+            modules = [
+                f"Arquitectura Avanzada en {user_prompt.title()}",
+                f"Optimización y Rendimiento",
+                f"Patrones y Casos Complejos",
+                f"Proyectos de Nivel Empresarial"
+            ]
+            topics = ["arquitectura", "optimizacion", "patrones-avanzados", "nivel-empresarial"]
+            size = "~800KB contenido avanzado"
         
-        # Ensure description meets minimum length requirement
-        while len(description) < 150:
-            description += f" Perfecto para quienes buscan dominar {user_prompt} de manera práctica y efectiva."
-        
-        # Truncate if too long (max 1000 characters)
-        if len(description) > 1000:
-            description = description[:997] + "..."
+        logger.info(f"🛡️ Fallback metadata generated for {level.value} level: {title}")
         
         return CourseMetadata(
-            title=f"Curso Completo de {user_prompt.title()}",
+            title=title,
             description=description,
             level=level,
-            estimated_duration=8,
-            prerequisites=["Conocimientos básicos del tema", "Motivación para aprender", "Acceso a computadora"],
-            total_modules=5,
-            module_list=[
-                "Introducción y Fundamentos Básicos",
-                "Conceptos Intermedios y Técnicas Clave", 
-                "Aplicaciones Prácticas y Casos de Uso",
-                "Herramientas y Implementación Avanzada",
-                "Proyecto Final y Síntesis"
-            ],
-            topics=interests[:4] + ["fundamentos", "aplicaciones"] if len(interests) < 4 else interests[:4] + ["fundamentos", "aplicaciones"][:6-len(interests)],
-            total_size="Contenido completo optimizado con ejemplos prácticos"
+            estimated_duration=duration,
+            prerequisites=prerequisites,
+            total_modules=len(modules),
+            module_list=modules,
+            topics=topics,
+            total_size=size
         )
     
     async def generate_course_introduction(
@@ -242,46 +353,44 @@ Requisitos:
         user_prompt: str, 
         interests: List[str]
     ) -> str:
-        """Generate course introduction with COST-OPTIMIZED prompts"""
+        """Generate course introduction with COST-OPTIMIZED prompt"""
         
-        # 🚀 COST OPTIMIZATION: More concise prompt with same output format
-        prompt = f"""Intro para: {metadata.title}
-Prompt: {user_prompt}, Intereses: {interests}
+        # 🚀 COST OPTIMIZATION: Shorter, more focused prompt
+        prompt = f"""Introducción curso: "{metadata.title}"
+Prompt: {user_prompt}
+Intereses: {interests}
 
-Formato exacto:
-
-📚 **{metadata.title}**
-
-🎉 **Bienvenida**
-¡Bienvenido/a! Exploraremos {user_prompt} conectado con {', '.join(interests)}.
-
-**Duración:** {metadata.estimated_duration}h
-**Nivel:** {metadata.level}
-**Enfoque:** Ejemplos con {', '.join(interests)}
-
-📝 **Requisitos**
-{chr(10).join([f'* ✅ {prereq}' for prereq in metadata.prerequisites])}
-
-📖 **Módulos**
-{chr(10).join([f'📚 Módulo {i+1}: {module} - Descripción breve con {interests[0] if interests else "intereses"}' for i, module in enumerate(metadata.module_list)])}
-
-🌟 **¡Empecemos!**
-¡Vamos allá! 🚀✨
-
-Personaliza descripciones con: {', '.join(interests)}"""
+Crea introducción motivadora (400-500 chars):
+- Conecta con intereses: {', '.join(interests[:3])}
+- Enfoque en aplicaciones prácticas
+- Tono inspirador y directo
+- Menciona beneficios concretos"""
         
         try:
             response = await self.client.messages.create(
                 model=self.model,
-                max_tokens=1200,  # Reduced from 1500
+                max_tokens=300,  # Reduced from higher values
                 messages=[{"role": "user", "content": prompt}]
             )
             
-            return response.content[0].text.strip()
+            introduction = response.content[0].text.strip()
+            
+            # Clean up introduction
+            if introduction.startswith('"') and introduction.endswith('"'):
+                introduction = introduction[1:-1]
+            
+            return introduction
             
         except Exception as e:
             logger.error(f"Error generating course introduction: {str(e)}")
-            raise
+            # Cost-effective fallback
+            return f"""
+            Bienvenido a "{metadata.title}" - un curso diseñado especialmente para conectar con tus intereses en {', '.join(interests[:2])}.
+            
+            Este programa te llevará desde los fundamentos hasta aplicaciones prácticas, con ejemplos específicos relacionados con {interests[0] if interests else 'tu área de interés'}.
+            
+            Prepárate para adquirir conocimientos aplicables inmediatamente en tus proyectos y objetivos profesionales.
+            """
     
     async def generate_module_structure(
         self, 
@@ -291,126 +400,172 @@ Personaliza descripciones con: {', '.join(interests)}"""
         interests: List[str],
         module_index: int
     ) -> Dict:
-        """Generate module structure with COST-OPTIMIZED prompts and robust JSON parsing"""
+        """Generate structure for a single module with sections that are PARTS of the main topic"""
         
-        # 🚀 COST OPTIMIZATION: Compact prompt with same JSON structure
-        prompt = f"""Estructura módulo: "{module_title}"
-Curso: {course_context}, Nivel: {level}, Intereses: {interests}
+        # 🎯 LEVEL-SPECIFIC section generation
+        if level == CourseLevel.PRINCIPIANTE:
+            section_instruction = "4 secciones básicas que expliquen diferentes aspectos del tema principal"
+        elif level == CourseLevel.INTERMEDIO:
+            section_instruction = "4 secciones intermedias que profundicen en aspectos técnicos del tema"
+        else:
+            section_instruction = "4 secciones avanzadas que cubran aspectos especializados del tema"
 
-JSON:
+        prompt = f"""Genera estructura para el módulo: "{module_title}"
+
+Contexto: {course_context}
+Nivel: {level.value}
+
+🎯 OBJETIVO: Crear {section_instruction} del tema "{module_title}".
+
+CRÍTICO: Los conceptos deben ser SECCIONES ESPECÍFICAS Y DIFERENCIADAS del mismo tema, NO repeticiones ni temas generales.
+
+Ejemplo correcto para "Variables en Python":
+- "Declaración y asignación de variables"
+- "Tipos de datos primitivos (int, float, string)"
+- "Operaciones y manipulación de variables" 
+- "Alcance de variables y mejores prácticas"
+
+Ejemplo INCORRECTO (muy genérico):
+- "Qué son las variables" ❌
+- "Variables en Python" ❌  
+- "Trabajar con variables" ❌
+- "Conceptos de variables" ❌
+
+Ejemplo correcto para "Fundamentos de JavaScript":
+- "Sintaxis básica y estructura del código"
+- "Variables y tipos de datos en JavaScript"
+- "Operadores y expresiones"
+- "Estructuras de control básicas (if/else)"
+
+REGLAS ESTRICTAS:
+1. Cada concepto debe ser una sección ESPECÍFICA y ÚNICA
+2. NO usar términos vagos como "conceptos", "introducción", "básico"
+3. Incluir palabras técnicas específicas cuando sea apropiado
+4. Progresión lógica de simple a complejo dentro del módulo
+5. Evitar solapamiento entre conceptos
+
+JSON exacto:
 {{
     "module_id": "modulo_{module_index + 1}",
     "title": "{module_title}",
-    "description": "Descripción 2-3 líneas",
-    "objective": "Al finalizar serás capaz de...",
-    "concepts": ["concepto1", "concepto2", "concepto3", "concepto4"],
+    "description": "Descripción del módulo (150-300 caracteres)",
+    "objective": "Al finalizar dominarás {module_title} completamente",
+    "concepts": ["[CONCEPTO_ESPECÍFICO_1]", "[CONCEPTO_ESPECÍFICO_2]", "[CONCEPTO_ESPECÍFICO_3]", "[CONCEPTO_ESPECÍFICO_4]"],
     "quiz": [{{
-        "question": "Pregunta relevante",
-        "options": ["A", "B", "C", "D"],
+        "question": "Pregunta específica sobre {module_title}",
+        "options": ["Opción A", "Opción B", "Opción C", "Opción D"],
         "correct_answer": 0,
-        "explanation": "Por qué es correcta"
+        "explanation": "Explicación detallada sobre {module_title}"
     }}],
-    "summary": "Resumen conceptos clave",
-    "practical_exercise": "Ejercicio integrador"
+    "summary": "Resumen de {module_title} y sus aspectos principales",
+    "practical_exercise": {{
+        "title": "Ejercicio Práctico de {module_title}",
+        "description": "Ejercicio que integra TODAS las secciones de {module_title}",
+        "objectives": ["Objetivo 1", "Objetivo 2", "Objetivo 3"],
+        "steps": ["Paso 1", "Paso 2", "Paso 3", "Paso 4"]
+    }}
 }}
 
-Conectar con: {', '.join(interests)}
-IMPORTANTE: Responde SOLO JSON válido sin caracteres especiales."""
+CRÍTICO:
+- TODOS los conceptos deben ser aspectos/secciones ESPECÍFICOS Y DIFERENCIADOS del tema "{module_title}"
+- NO crear temas independientes diferentes
+- NO usar términos vagos o repetitivos
+- Enfoque en un solo tema principal con profundidad y especificidad
+- Solo JSON válido"""
         
         try:
             response = await self.client.messages.create(
                 model=self.model,
-                max_tokens=1000,  # Reduced from 1200
+                max_tokens=1000,
                 messages=[{"role": "user", "content": prompt}]
             )
             
             content = response.content[0].text.strip()
-            
-            # 🛡️ ROBUSTNESS: Enhanced debugging and JSON fixing
-            logger.info(f"Raw response length: {len(content)}")
-            logger.info(f"First 50 chars (repr): {repr(content[:50])}")
-            
-            # Apply enhanced JSON fixing
             content = self.fix_malformed_json(content)
-            logger.info(f"After sanitization: {repr(content[:50])}")
             
             try:
                 parsed_json = json.loads(content)
-                logger.info(f"JSON parsing successful for module {module_index + 1}")
+                logger.info(f"Module structure generated successfully for: {module_title}")
                 return parsed_json
             except json.JSONDecodeError as e:
                 logger.error(f"JSON parsing failed for module structure: {str(e)}")
-                logger.error(f"Error position: line {getattr(e, 'lineno', 'unknown')} column {getattr(e, 'colno', 'unknown')}")
-                logger.error(f"Full content: {content}")
+                return self._generate_fallback_module_structure(module_title, module_index, interests)
                 
-                # Try one more aggressive fix
-                try:
-                    # Remove everything that's not printable ASCII or essential JSON characters
-                    clean_content = ''.join(char for char in content if ord(char) >= 32 or char in '\n\t')
-                    clean_content = clean_content.strip()
-                    
-                    # Ensure it starts and ends with braces
-                    if not clean_content.startswith('{'):
-                        brace_start = clean_content.find('{')
-                        if brace_start >= 0:
-                            clean_content = clean_content[brace_start:]
-                    
-                    if not clean_content.endswith('}'):
-                        brace_end = clean_content.rfind('}')
-                        if brace_end >= 0:
-                            clean_content = clean_content[:brace_end + 1]
-                    
-                    logger.info(f"Attempting aggressive cleanup: {repr(clean_content[:100])}")
-                    return json.loads(clean_content)
-                    
-                except Exception as cleanup_error:
-                    logger.error(f"Aggressive cleanup also failed: {cleanup_error}")
-                    return self._generate_fallback_module_structure(module_title, module_index, interests)
-                
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON parsing error for module {module_index + 1}: {str(e)}")
-            
-            # 🔄 FALLBACK: Return a basic structure if JSON parsing fails
-            return self._generate_fallback_module_structure(module_title, module_index, interests)
-            
         except Exception as e:
             logger.error(f"Error generating module structure: {str(e)}")
-            
-            # 🔄 FALLBACK: Return a basic structure
             return self._generate_fallback_module_structure(module_title, module_index, interests)
     
     def _generate_fallback_module_structure(self, module_title: str, module_index: int, interests: List[str]) -> Dict:
-        """Generate a fallback module structure when JSON parsing fails"""
+        """Generate a fallback module structure with sections of the same topic"""
         
-        # Create a description that meets minimum validation requirements (150+ chars)
-        description = f"Módulo completo sobre {module_title} diseñado para conectar todos los conceptos con tus intereses en {', '.join(interests[:2]) if interests else 'diversas áreas'}. "
-        description += f"Este módulo te proporcionará una comprensión profunda y práctica de {module_title}, incluyendo ejemplos detallados, ejercicios interactivos y aplicaciones del mundo real. "
-        description += "Aprenderás no solo la teoría fundamental, sino también cómo implementar estos conocimientos de manera efectiva en proyectos prácticos que se alineen con tus objetivos específicos."
+        # Create sections that are PARTS of the module topic, not different topics
+        base_topic = module_title.lower()
+        if "python" in base_topic or "programación" in base_topic:
+            sections = [
+                f"Introducción y conceptos básicos de {module_title}",
+                f"Sintaxis y estructura fundamental",
+                f"Aplicación práctica y ejemplos",
+                f"Mejores prácticas y casos comunes"
+            ]
+        elif "variables" in base_topic:
+            sections = [
+                "Qué son las variables y cómo funcionan",
+                "Tipos de datos y asignación",
+                "Operaciones con variables",
+                "Mejores prácticas y errores comunes"
+            ]
+        elif "fundamentos" in base_topic:
+            sections = [
+                f"Conceptos teóricos de {module_title}",
+                f"Principios fundamentales",
+                f"Aplicaciones básicas",
+                f"Ejercicios de consolidación"
+            ]
+        else:
+            # Generic sections for any topic
+            sections = [
+                f"Introducción a {module_title}",
+                f"Componentes principales de {module_title}",
+                f"Implementación práctica de {module_title}",
+                f"Casos de uso y aplicaciones de {module_title}"
+            ]
+        
+        description = f"Módulo completo sobre {module_title}. Aprenderás todos los aspectos fundamentales y cómo aplicarlos de manera práctica. Incluye ejercicios y ejemplos para dominar el tema completamente."
         
         return {
             "module_id": f"modulo_{module_index + 1}",
             "title": module_title,
             "description": description,
-            "objective": f"Al finalizar este módulo, serás capaz de aplicar {module_title} en tus proyectos",
-            "concepts": [
-                f"Fundamentos de {module_title}",
-                f"Aplicaciones prácticas",
-                f"Herramientas y técnicas",
-                f"Casos de estudio"
-            ],
+            "objective": f"Al finalizar este módulo, dominarás completamente {module_title} y podrás aplicarlo con confianza",
+            "concepts": sections,
             "quiz": [{
-                "question": f"¿Cuál es el beneficio principal de {module_title}?",
+                "question": f"¿Cuál es el aspecto más importante de {module_title}?",
                 "options": [
-                    "Mejora la eficiencia",
-                    "Reduce costos", 
-                    "Aumenta la calidad",
-                    "Todas las anteriores"
+                    "Su aplicación práctica",
+                    "Su comprensión teórica", 
+                    "Su implementación técnica",
+                    "Todos los aspectos son igualmente importantes"
                 ],
                 "correct_answer": 3,
-                "explanation": f"{module_title} ofrece múltiples beneficios integrales"
+                "explanation": f"En {module_title}, todos los aspectos trabajan juntos para crear una comprensión completa"
             }],
-            "summary": f"En este módulo exploramos {module_title} y sus aplicaciones prácticas",
-            "practical_exercise": f"Desarrolla un proyecto aplicando {module_title} a {interests[0] if interests else 'tu área de interés'}"
+            "summary": f"En este módulo cubrimos todos los aspectos fundamentales de {module_title}, desde conceptos básicos hasta aplicación práctica",
+            "practical_exercise": {
+                "title": f"Ejercicio Práctico: Dominio de {module_title}",
+                "description": f"Ejercicio integrador que demuestra tu comprensión completa de {module_title}",
+                "objectives": [
+                    f"Aplicar los conceptos fundamentales de {module_title}",
+                    f"Demostrar comprensión práctica del tema",
+                    f"Integrar todas las secciones aprendidas",
+                    f"Resolver problemas usando {module_title}"
+                ],
+                "steps": [
+                    f"Paso 1: Planifica tu enfoque para aplicar {module_title}",
+                    f"Paso 2: Implementa los conceptos básicos",
+                    f"Paso 3: Desarrolla la solución completa",
+                    f"Paso 4: Evalúa y optimiza tu implementación"
+                ]
+            }
         }
     
     async def generate_concept_content(
@@ -432,7 +587,7 @@ IMPORTANTE: Responde SOLO JSON válido sin caracteres especiales."""
         [Explicación clara y detallada adaptada al nivel {level}. Incluye definiciones, principios clave, y cómo se relaciona con {course_context}]
 
         💡 **Ejemplo práctico:**
-        [Ejemplo específico conectado con los intereses: {', '.join(interests)}. Si los intereses incluyen 'tenis' y el concepto es sobre IA, da ejemplo de IA en análisis de partidos]
+        [Ejemplo ESPECÍFICO y práctico del concepto. Mantén el nivel {level.value} en complejidad]
 
         🛠️ **Mini actividad práctica:**
         [Actividad inmediata para aplicar el concepto, también conectada con los intereses del usuario]
@@ -541,59 +696,125 @@ IMPORTANTE: Responde SOLO JSON válido sin caracteres especiales."""
     ) -> Dict[str, str]:
         """
         🚀 COST OPTIMIZATION: Generate ALL concepts in a single API call
+        🎓 LEVEL-APPROPRIATE CONTENT: Adapts tone and complexity to user level
         Reduces cost by 70-80% compared to individual concept generation
         """
         
         # Create numbered concept list for easy parsing
         concepts_list = "\n".join([f"{i+1}. {concept}" for i, concept in enumerate(concepts)])
         
+        # 🎯 LEVEL-SPECIFIC PROMPTS: Different approach for each level
+        if level == CourseLevel.PRINCIPIANTE:
+            tone_instruction = """
+TONO PARA PRINCIPIANTES:
+- Usa un lenguaje simple y amigable
+- Explica como si fueras un mentor cercano
+- Comienza conceptos con "Hola", "Perfecto", "Genial"
+- Evita jerga técnica compleja
+- Usa analogías cotidianas
+- Sé motivador y alentador
+- Explica el "por qué" antes del "cómo"
+"""
+            content_instruction = """
+CONTENIDO PARA PRINCIPIANTES:
+- Explicaciones paso a paso muy claras
+- Conceptos fundamentales sin profundizar en detalles técnicos complejos
+- Enfoque práctico y tangible
+- Ejemplos simples y cotidianos
+- 2000-2500 caracteres por concepto
+"""
+        
+        elif level == CourseLevel.INTERMEDIO:
+            tone_instruction = """
+TONO PARA NIVEL INTERMEDIO:
+- Lenguaje técnico moderado pero accesible
+- Tono profesional pero amigable
+- Conecta conceptos con conocimientos previos
+- Introduce términos técnicos gradualmente
+- Mantén motivación para seguir aprendiendo
+"""
+            content_instruction = """
+CONTENIDO PARA NIVEL INTERMEDIO:
+- Conceptos con mayor profundidad técnica
+- Introduce mejores prácticas
+- Conecta con conceptos avanzados
+- Ejemplos más complejos y realistas
+- 3000-3500 caracteres por concepto
+"""
+        
+        else:  # AVANZADO
+            tone_instruction = """
+TONO PARA NIVEL AVANZADO:
+- Lenguaje técnico preciso y profesional
+- Tono experto pero claro
+- Asume conocimiento técnico previo
+- Enfoque en optimización y mejores prácticas
+- Discusión de trade-offs y consideraciones avanzadas
+"""
+            content_instruction = """
+CONTENIDO PARA NIVEL AVANZADO:
+- Análisis técnico profundo
+- Consideraciones de arquitectura y rendimiento
+- Referencias a investigaciones y estándares
+- Casos de uso complejos y edge cases
+- 4000-4500 caracteres por concepto
+"""
+
         prompt = f"""
-        Genera contenido detallado para TODOS los conceptos del módulo "{module_context}" siguiendo EXACTAMENTE este formato para cada uno:
+        Genera contenido educativo APROPIADO PARA {level.value.upper()} sobre los conceptos del módulo "{module_context}":
 
         CONCEPTOS A GENERAR:
         {concepts_list}
 
-        Para CADA concepto, genera:
+        {tone_instruction}
+
+        {content_instruction}
+
+        Para CADA concepto, sigue EXACTAMENTE este formato:
 
         📖 **Concepto: [NOMBRE_CONCEPTO]**
 
-        **Explicación teórica:**
-        [Explicación clara adaptada al nivel {level}. Incluye definiciones, principios clave, y relación con {course_context}]
+        **¿Qué es y por qué importa?**
+        [Explicación adaptada al nivel {level.value}: {content_instruction.split('- ')[1] if content_instruction else 'clara y motivadora'}]
 
-        💡 **Ejemplo práctico:**
-        [Ejemplo específico conectado con los intereses: {', '.join(interests)}]
+        **Cómo funciona en la práctica:**
+        [Detalles técnicos apropiados para {level.value}, explicados con {tone_instruction.split('- ')[1] if tone_instruction else 'claridad'}]
 
-        🛠️ **Mini actividad práctica:**
-        [Actividad inmediata para aplicar el concepto]
+        **Ejemplo en acción:**
+        [Ejemplo ESPECÍFICO y práctico del concepto. Mantén el nivel {level.value} en complejidad]
+
+        **¿Dónde más lo encontrarás?**
+        [Aplicaciones y conexiones relevantes para {level.value}]
 
         ---SEPARADOR_CONCEPTO---
 
-        CONTEXTO GLOBAL:
+        CONTEXTO DEL CURSO:
         - Módulo: {module_context}
         - Curso: {course_context}
-        - Nivel: {level}
-        - Intereses: {', '.join(interests)}
+        - Nivel del estudiante: {level.value}
 
         REQUISITOS CRÍTICOS:
-        - Máximo 1800 caracteres por concepto
+        - Respeta ESTRICTAMENTE el nivel {level.value}
+        - {content_instruction.split('- ')[-1] if content_instruction else '2000-2500 caracteres por concepto'}
+        - Enfoque neutro, sin personalización por intereses
         - Usar EXACTAMENTE "---SEPARADOR_CONCEPTO---" entre conceptos
-        - Mantener formato consistente
-        - Ejemplos específicos con los intereses
-        - NO omitir ningún concepto de la lista
+        - {tone_instruction.split('- ')[0] if tone_instruction else 'Tono amigable y motivador'}
         """
         
         try:
-            # Use higher max_tokens for batch generation but still cost-effective
+            # Adjusted token usage based on level
+            max_tokens = 3000 if level == CourseLevel.PRINCIPIANTE else 3500 if level == CourseLevel.INTERMEDIO else 4000
+            
             response = await self.client.messages.create(
                 model=self.model,
-                max_tokens=2500,  # Optimized for batch size vs individual calls
+                max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}]
             )
             
-            # 🚀 COST TRACKING: Track this batch optimization
+            # Track cost optimization
             self.track_api_call(
-                input_tokens=len(prompt.split()) * 1.3,  # Rough estimate
-                output_tokens=response.usage.output_tokens if hasattr(response, 'usage') else 2000,
+                input_tokens=len(prompt.split()) * 1.3,
+                output_tokens=response.usage.output_tokens if hasattr(response, 'usage') else max_tokens * 0.8,
                 is_batch=True
             )
             
@@ -601,59 +822,82 @@ IMPORTANTE: Responde SOLO JSON válido sin caracteres especiales."""
             
             # Parse batch response into individual concept contents
             concept_contents = {}
-            
-            # Split by separator
             parts = content.split("---SEPARADOR_CONCEPTO---")
             
-            # Extract content for each concept
             for i, concept in enumerate(concepts):
                 if i < len(parts):
                     part = parts[i].strip()
-                    
-                    # Clean up the content and ensure it follows format
                     if part:
                         concept_contents[concept] = part
                     else:
-                        # Fallback with minimal content
-                        concept_contents[concept] = f"""
-                        📖 **Concepto: {concept}**
-
-                        **Explicación teórica:**
-                        {concept} es un elemento fundamental en {course_context}. Este concepto te permite comprender mejor {module_context} y aplicarlo en contextos relacionados con {', '.join(interests)}.
-
-                        💡 **Ejemplo práctico:**
-                        Un ejemplo práctico de {concept} en el contexto de {interests[0] if interests else 'tu área de interés'}.
-
-                        🛠️ **Mini actividad práctica:**
-                        Identifica una situación donde puedas aplicar {concept} en tu día a día.
-                        """
+                        concept_contents[concept] = self._generate_level_appropriate_fallback(concept, module_context, course_context, level, interests)
                 else:
-                    # Generate fallback for missing concepts
-                    concept_contents[concept] = f"""
-                    📖 **Concepto: {concept}**
-
-                    **Explicación teórica:**
-                    {concept} es un elemento clave en {course_context}. Te ayudará a dominar {module_context} con aplicaciones prácticas.
-
-                    💡 **Ejemplo práctico:**
-                    Aplicación de {concept} en {interests[0] if interests else 'proyectos reales'}.
-
-                    🛠️ **Mini actividad práctica:**
-                    Practica {concept} con un ejercicio básico relacionado con {module_context}.
-                    """
+                    concept_contents[concept] = self._generate_level_appropriate_fallback(concept, module_context, course_context, level, interests)
             
-            logger.info(f"✅ Batch generation successful: {len(concept_contents)}/{len(concepts)} concepts")
+            logger.info(f"✅ Level-appropriate batch generation successful ({level.value}): {len(concept_contents)}/{len(concepts)} concepts")
             logger.info(f"💰 Cost optimization: ~{len(concepts)*70}% savings vs individual calls")
             return concept_contents
             
         except Exception as e:
-            logger.error(f"Error in batch concept generation: {str(e)}")
-            
-            # Fallback: Generate individual concepts (original method)
+            logger.error(f"Error in level-appropriate batch concept generation: {str(e)}")
             logger.info("🔄 Falling back to individual concept generation")
             return await self._generate_concepts_individually_fallback(
                 concepts, module_context, course_context, level, interests
             )
+
+    def _generate_level_appropriate_fallback(self, concept: str, module_context: str, course_context: str, level: CourseLevel, interests: List[str]) -> str:
+        """Generate a level-appropriate fallback content for a concept"""
+        
+        if level == CourseLevel.PRINCIPIANTE:
+            return f"""
+📖 **Concepto: {concept}**
+
+**¿Qué es y por qué importa?**
+¡Hola! Hoy vamos a aprender sobre {concept}, que es uno de los conceptos fundamentales que necesitas conocer en {course_context}. Te aseguro que es más fácil de lo que parece y te ayudará muchísimo en tu camino de aprendizaje.
+
+**Cómo funciona en la práctica:**
+Te lo explico paso a paso de manera sencilla. {concept} es como [analogía simple] - funciona de una manera muy directa y práctica que podrás usar desde el primer día.
+
+**Ejemplo en acción:**
+Imagínate que estás trabajando en un proyecto simple. Aquí te muestro exactamente cómo usar {concept} en esa situación de manera práctica y sin complicaciones.
+
+**¿Dónde más lo encontrarás?**
+Este concepto lo vas a ver en muchos lugares, especialmente cuando avances en tu aprendizaje. Es súper útil y una vez que lo domines, te sentirás mucho más confiado.
+"""
+        
+        elif level == CourseLevel.INTERMEDIO:
+            return f"""
+📖 **Concepto: {concept}**
+
+**¿Qué es y por qué importa?**
+{concept} es un concepto importante en {course_context} que se construye sobre lo que ya has aprendido. Te permitirá crear soluciones más robustas y eficientes.
+
+**Cómo funciona en la práctica:**
+A nivel técnico, {concept} involucra varios aspectos que debes considerar. Es importante entender tanto su implementación como sus limitaciones para usar de manera efectiva.
+
+**Ejemplo en acción:**
+En aplicaciones reales, {concept} se puede implementar considerando las mejores prácticas y los patrones de diseño apropiados.
+
+**¿Dónde más lo encontrarás?**
+Este concepto es fundamental en desarrollo profesional y lo encontrarás en frameworks modernos, arquitecturas escalables y sistemas de producción.
+"""
+        
+        else:  # AVANZADO
+            return f"""
+📖 **Concepto: {concept}**
+
+**¿Qué es y por qué importa?**
+{concept} representa un aspecto avanzado de {course_context} con implicaciones significativas en arquitectura y rendimiento. Su comprensión profunda es crucial para optimización y escalabilidad.
+
+**Cómo funciona en la práctica:**
+La implementación de {concept} requiere consideraciones de rendimiento, memoria, concurrencia y patrones de diseño avanzados. Incluye análisis de complejidad temporal y espacial.
+
+**Ejemplo en acción:**
+En sistemas de producción para aplicaciones enterprise, {concept} se implementa considerando aspectos como load balancing, caching strategies y fault tolerance.
+
+**¿Dónde más lo encontrarás?**
+Este concepto es fundamental en arquitecturas distribuidas, sistemas de alta disponibilidad, optimización de compiladores y investigación en ciencias de la computación.
+"""
     
     async def _generate_concepts_individually_fallback(
         self, 

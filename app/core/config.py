@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="redis://invalid:6379", env="REDIS_URL")
     
     # Course Generation Settings
-    max_chunk_size: int = 2000
+    max_chunk_size: int = 5000
     max_modules_per_course: int = 15
     min_modules_per_course: int = 5
     max_concepts_per_module: int = 8

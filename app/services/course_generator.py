@@ -9,7 +9,8 @@ import json
 from ..models.course import (
     Course, CourseMetadata, Module, ModuleChunk, 
     CourseLevel, CourseStatus, CourseGenerationRequest,
-    CourseGenerationResponse, StreamEvent, FinalProject
+    CourseGenerationResponse, StreamEvent, FinalProject, PracticalExercise,
+    ModuleMetadata
 )
 from ..core.database import get_database
 from .claude_service import ClaudeService
@@ -35,10 +36,10 @@ class CourseGenerationService:
         request: CourseGenerationRequest,
         user_id: str = "anonymous"
     ) -> CourseGenerationResponse:
-        """Generate course metadata and introduction in < 3 seconds"""
+        """Generate course metadata and ALL modules metadata in < 3 seconds"""
         
         try:
-            logger.info(f"Starting fast course generation for user {user_id}")
+            logger.info(f"🚀 Starting ENHANCED course generation for user {user_id}")
             start_time = datetime.utcnow()
             
             # Check cache first
@@ -52,9 +53,8 @@ class CourseGenerationService:
             if cached_response and "metadata" in cached_response.get("response", {}):
                 logger.info("Using cached course metadata")
                 metadata = CourseMetadata(**cached_response["response"]["metadata"])
-                course_id = str(uuid.uuid4())
             else:
-                # Generate fresh metadata
+                # Generate fresh metadata (structure only, interests don't affect this)
                 metadata = await self.claude_service.generate_course_metadata(
                     request.prompt,
                     request.level,
@@ -69,6 +69,19 @@ class CourseGenerationService:
                     request.level.value,
                     request.interests
                 )
+            
+            # 🎯 GENERATE COMPLETE METADATA FOR ALL MODULES (fast, no content yet)
+            modules_metadata = []
+            for i, module_title in enumerate(metadata.module_list):
+                module_meta = ModuleMetadata(
+                    module_id=f"modulo_{i + 1}",
+                    title=module_title,
+                    description=f"Módulo completo sobre {module_title} con teoría profunda y aplicaciones prácticas.",
+                    objective=f"Al finalizar este módulo, dominarás {module_title} y podrás aplicarlo en proyectos reales.",
+                    estimated_duration=2,
+                    total_concepts=4
+                )
+                modules_metadata.append(module_meta)
             
             # Create course with initial data
             course_id = str(uuid.uuid4())
@@ -85,26 +98,34 @@ class CourseGenerationService:
             database = await get_database()
             course_dict = course.dict(by_alias=True)
             course_dict["_id"] = course_id
+            
+            # Initialize modules array with empty slots for each module
+            course_dict["modules"] = [None] * metadata.total_modules
+            
             await database.courses.insert_one(course_dict)
             
-            # Start async content generation (don't wait)
+            # 🔥 Start PARALLEL content generation for ALL modules (don't wait)
             asyncio.create_task(
                 self._generate_course_content_async(course_id, course, user_id)
             )
             
             # Log timing
             elapsed = (datetime.utcnow() - start_time).total_seconds()
-            logger.info(f"Fast response generated in {elapsed:.2f} seconds")
+            logger.info(f"🎯 ENHANCED fast response generated in {elapsed:.2f} seconds")
+            logger.info(f"📊 Returning metadata for {len(modules_metadata)} modules")
             
             return CourseGenerationResponse(
                 course_id=course_id,
                 metadata=metadata,
+                modules_metadata=modules_metadata,  # Complete metadata for ALL modules
                 status=CourseStatus.GENERATING,
-                introduction_ready=True
+                introduction_ready=True,
+                generation_started=True,
+                estimated_completion_time=len(modules_metadata) * 2  # 2 min per module
             )
             
         except Exception as e:
-            logger.error(f"Error in fast course generation: {str(e)}")
+            logger.error(f"❌ Error in enhanced course generation: {str(e)}")
             raise
     
     async def _generate_course_content_async(
@@ -113,90 +134,76 @@ class CourseGenerationService:
         course: Course, 
         user_id: str
     ):
-        """Generate course introduction and first module only"""
+        """Generate ALL modules concurrently in parallel - TRUE async generation"""
         
         try:
-            logger.info(f"Starting async content generation for course {course_id}")
+            logger.info(f"🚀 Starting PARALLEL generation for course {course_id} with {course.metadata.total_modules} modules")
             
-            # Generate introduction
+            # Generate introduction first (quick)
             introduction = await self.claude_service.generate_course_introduction(
                 course.metadata,
                 course.user_prompt,
                 course.user_interests
             )
-            
-            # Update course with introduction
             await self._update_course_introduction(course_id, introduction)
             
-            # Generate ONLY the first module
+            # 🔥 PARALLEL MODULE GENERATION: Create ALL modules concurrently
             if course.metadata.module_list:
-                try:
-                    first_module_title = course.metadata.module_list[0]
-                    logger.info(f"Generating first module: {first_module_title}")
-                    
-                    # Generate module structure first
-                    module_structure = await self.claude_service.generate_module_structure(
-                        first_module_title,
-                        course.user_prompt,
-                        course.user_level,
-                        course.user_interests,
-                        0
+                
+                # Create semaphore to limit concurrent Claude API calls (avoid rate limits)
+                semaphore = asyncio.Semaphore(3)  # Max 3 concurrent generations
+                
+                # Create tasks for ALL modules at once
+                module_tasks = []
+                for module_index in range(len(course.metadata.module_list)):
+                    task = self._generate_single_module_with_semaphore(
+                        semaphore, course_id, course, module_index
                     )
-                    
-                    # Generate module content in chunks
-                    chunks = await self.claude_service.generate_module_content_chunked(
-                        module_structure,
-                        course.user_prompt,
-                        course.user_level,
-                        course.user_interests
-                    )
-                    
-                    # Search for relevant videos
-                    videos = await self.youtube_service.search_videos_for_module(
-                        first_module_title,
-                        module_structure["concepts"],
-                        course.user_prompt
-                    )
-                    
-                    # Create module
-                    module = Module(
-                        module_id=module_structure["module_id"],
-                        title=module_structure["title"],
-                        description=module_structure["description"],
-                        objective=module_structure["objective"],
-                        concepts=module_structure["concepts"],
-                        chunks=chunks,
-                        quiz=module_structure["quiz"],
-                        summary=module_structure["summary"],
-                        practical_exercise=module_structure["practical_exercise"]
-                    )
-                    
-                    # Add videos to module resources
-                    for video in videos:
-                        module.resources.videos.append(video)
-                    
-                    # Save first module to database
-                    await self._save_module_to_course(course_id, module)
-                    
-                    logger.info(f"First module completed: {first_module_title}")
-                    
-                except Exception as e:
-                    logger.error(f"Error generating first module: {str(e)}")
-            
-            # Mark course as ready with first module
-            await self._mark_course_ready(course_id)
+                    module_tasks.append(task)
+                
+                logger.info(f"🎯 Launching {len(module_tasks)} module generation tasks in parallel...")
+                
+                # Execute ALL module generations concurrently
+                results = await asyncio.gather(*module_tasks, return_exceptions=True)
+                
+                # Process results
+                successful_modules = []
+                failed_modules = []
+                
+                for i, result in enumerate(results):
+                    if isinstance(result, Exception):
+                        logger.error(f"❌ Module {i+1} generation failed: {str(result)}")
+                        failed_modules.append(i+1)
+                    elif result is not None:
+                        logger.info(f"✅ Module {i+1} generated successfully: {result.title}")
+                        successful_modules.append(result)
+                    else:
+                        logger.warning(f"⚠️ Module {i+1} returned None")
+                        failed_modules.append(i+1)
+                
+                logger.info(f"🎉 Parallel generation completed:")
+                logger.info(f"   ✅ Successful: {len(successful_modules)}/{len(module_tasks)} modules")
+                logger.info(f"   ❌ Failed: {len(failed_modules)} modules")
+                
+                if successful_modules:
+                    # Mark course as ready with available modules
+                    await self._mark_course_ready(course_id)
+                    logger.info(f"📚 Course {course_id} marked as ready with {len(successful_modules)} modules")
+                else:
+                    await self._mark_course_error(course_id, "No modules could be generated")
+                    return
             
             # Cache completed course
             await self.cache_service.cache_course(course_id, {"status": "ready"})
             
-            logger.info(f"Course {course_id} initial generation completed (intro + first module)")
+            logger.info(f"🎯 Course {course_id} PARALLEL generation completed successfully!")
             
         except Exception as e:
-            logger.error(f"Error in async course generation: {str(e)}")
+            logger.error(f"❌ Error in parallel course generation: {str(e)}")
             await self._mark_course_error(course_id, str(e))
     
     async def get_course(self, course_id: str) -> Optional[Course]:
-        """Get course by ID with caching"""
+        """Get course by ID with caching - handles null modules during generation"""
         
         try:
             # Check cache first
@@ -210,10 +217,18 @@ class CourseGenerationService:
             course_doc = await database.courses.find_one({"_id": course_id})
             
             if course_doc:
+                # Handle null modules during generation - filter them out for validation
+                if "modules" in course_doc and course_doc["modules"]:
+                    # Filter out null modules for Course validation
+                    course_doc["modules"] = [m for m in course_doc["modules"] if m is not None]
+                else:
+                    course_doc["modules"] = []
+                
                 course = Course(**course_doc)
                 
-                # Cache for future requests
-                await self.cache_service.cache_course(course_id, course.dict())
+                # Cache for future requests (only cache when course is ready)
+                if course.status == CourseStatus.READY:
+                    await self.cache_service.cache_course(course_id, course.dict())
                 
                 return course
                 
@@ -236,87 +251,6 @@ class CourseGenerationService:
             logger.error(f"Error getting module {module_id}: {str(e)}")
             
         return None
-    
-    async def generate_module_on_demand(
-        self, 
-        course_id: str, 
-        module_index: int
-    ) -> Optional[Module]:
-        """Generate a specific module on demand"""
-        
-        try:
-            # Get course to check if module already exists
-            course = await self.get_course(course_id)
-            if not course:
-                logger.error(f"Course {course_id} not found")
-                return None
-            
-            # Check if module already exists
-            if len(course.modules) > module_index:
-                logger.info(f"Module {module_index} already exists for course {course_id}")
-                return course.modules[module_index]
-            
-            # Check if module_index is valid
-            if module_index >= len(course.metadata.module_list):
-                logger.error(f"Module index {module_index} out of range for course {course_id}")
-                return None
-                
-            module_title = course.metadata.module_list[module_index]
-            logger.info(f"Generating module {module_index + 1}: {module_title} for course {course_id}")
-            
-            # Generate module structure
-            module_structure = await self.claude_service.generate_module_structure(
-                module_title,
-                course.user_prompt,
-                course.user_level,
-                course.user_interests,
-                module_index
-            )
-            
-            # Generate module content in chunks
-            chunks = await self.claude_service.generate_module_content_chunked(
-                module_structure,
-                course.user_prompt,
-                course.user_level,
-                course.user_interests
-            )
-            
-            # Search for relevant videos
-            videos = await self.youtube_service.search_videos_for_module(
-                module_title,
-                module_structure["concepts"],
-                course.user_prompt
-            )
-            
-            # Create module
-            module = Module(
-                module_id=module_structure["module_id"],
-                title=module_structure["title"],
-                description=module_structure["description"],
-                objective=module_structure["objective"],
-                concepts=module_structure["concepts"],
-                chunks=chunks,
-                quiz=module_structure["quiz"],
-                summary=module_structure["summary"],
-                practical_exercise=module_structure["practical_exercise"]
-            )
-            
-            # Add videos to module resources
-            for video in videos:
-                module.resources.videos.append(video)
-            
-            # Save module to database
-            await self._save_module_to_course(course_id, module)
-            
-            # Invalidate cache to ensure fresh data
-            await self.cache_service.invalidate_course_cache(course_id)
-            
-            logger.info(f"Module {module_index + 1} generated successfully for course {course_id}")
-            return module
-            
-        except Exception as e:
-            logger.error(f"Error generating module {module_index} for course {course_id}: {str(e)}")
-            return None
     
     async def generate_audio_for_concept(
         self, 
@@ -440,12 +374,19 @@ class CourseGenerationService:
         await self.cache_service.invalidate_course_cache(course_id)
     
     async def _save_module_to_course(self, course_id: str, module: Module):
-        """Save module to course in database"""
+        """Save module to course in database at the correct position"""
         database = await get_database()
+        
+        # Extract module index from module_id (e.g., "modulo_2" -> index 1)
+        module_index = int(module.module_id.split("_")[1]) - 1
+        
+        # Use $set to place module at specific position in array
         await database.courses.update_one(
             {"_id": course_id},
-            {"$push": {"modules": module.dict()}}
+            {"$set": {f"modules.{module_index}": module.dict()}}
         )
+        
+        logger.info(f"✅ Module saved at position {module_index}: {module.title}")
         
         # Invalidate cache
         await self.cache_service.invalidate_course_cache(course_id)
@@ -557,73 +498,7 @@ class CourseGenerationService:
             
         except Exception as e:
             logger.error(f"Error getting statistics: {str(e)}")
-            return {} 
-    
-    async def generate_remaining_modules_background(
-        self, 
-        course_id: str,
-        user_id: str = "anonymous"
-    ) -> bool:
-        """
-        Generate all remaining modules in background when user starts the course.
-        This provides zero-latency experience for module navigation.
-        """
-        try:
-            logger.info(f"Starting background generation of remaining modules for course {course_id}")
-            
-            # Get course to check current state
-            course = await self.get_course(course_id)
-            if not course:
-                logger.error(f"Course {course_id} not found")
-                return False
-            
-            # Determine which modules need to be generated
-            current_modules = len(course.modules)
-            total_modules = course.metadata.total_modules
-            
-            if current_modules >= total_modules:
-                logger.info(f"All modules already generated for course {course_id}")
-                return True
-            
-            logger.info(f"Generating {total_modules - current_modules} remaining modules in background")
-            
-            # Generate remaining modules concurrently (but limit concurrency to avoid overload)
-            semaphore = asyncio.Semaphore(3)  # Max 3 concurrent module generations
-            
-            tasks = []
-            for module_index in range(current_modules, total_modules):
-                task = self._generate_single_module_with_semaphore(
-                    semaphore, course_id, course, module_index
-                )
-                tasks.append(task)
-            
-            # Execute all tasks concurrently
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            # Log results
-            successful_modules = sum(1 for result in results if not isinstance(result, Exception))
-            failed_modules = len(results) - successful_modules
-            
-            logger.info(f"Background generation completed: {successful_modules} successful, {failed_modules} failed")
-            
-            # Update course status if all modules are ready
-            if successful_modules == len(tasks):
-                database = await get_database()
-                await database.courses.update_one(
-                    {"_id": course_id},
-                    {"$set": {"status": CourseStatus.READY.value, "all_modules_ready": True}}
-                )
-                
-                # Invalidate cache
-                await self.cache_service.invalidate_course_cache(course_id)
-                
-                logger.info(f"Course {course_id} marked as fully ready")
-            
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error in background module generation: {str(e)}")
-            return False
+            return {}
     
     async def _generate_single_module_with_semaphore(
         self,
@@ -677,12 +552,34 @@ class CourseGenerationService:
                     {"status": "generating", "progress": 70}
                 )
                 
-                # Search for relevant videos (async, don't block)
-                videos = await self.youtube_service.search_videos_for_module(
+                # Search for relevant videos for the module and individual sections
+                module_videos = await self.youtube_service.search_videos_for_module(
                     module_title,
                     module_structure["concepts"],
-                    course.user_prompt
+                    course.user_prompt,
+                    module_index=module_index  # ✨ Pass module index for variety
                 )
+                
+                # Search for videos for each section/chunk
+                section_videos = []
+                for i, chunk in enumerate(chunks):
+                    try:
+                        # Use the corresponding concept as the title for video search
+                        concept_title = module_structure["concepts"][i] if i < len(module_structure["concepts"]) else f"Sección {i+1}"
+                        
+                        section_video = await self.youtube_service.search_videos_for_concept(
+                            concept_title,
+                            course.user_prompt,
+                            max_results=1,  # One video per section
+                            module_index=module_index  # ✨ Pass module index for variety
+                        )
+                        if section_video:
+                            # Add the video to the chunk
+                            chunk.video = section_video[0]
+                            section_videos.extend(section_video)
+                    except Exception as e:
+                        logger.warning(f"Error getting video for section {i+1}: {e}")
+                        continue
                 
                 # Create module
                 module = Module(
@@ -698,7 +595,7 @@ class CourseGenerationService:
                 )
                 
                 # Add videos to module resources
-                for video in videos:
+                for video in module_videos:
                     module.resources.videos.append(video)
                 
                 # Save module to database

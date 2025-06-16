@@ -18,14 +18,13 @@ const CourseDisplay = ({ courseData, onStartNew, onModuleStart }) => {
   console.log('🎯 CourseDisplay received courseData:', courseData);
   
   // Destructure from courseData structure returned by backend
-  const { course_id, metadata, status } = courseData || {};
+  const { course_id, metadata, modules_metadata, status, generation_started, estimated_completion_time } = courseData || {};
   const { title, description, level, total_modules, module_list, topics } = metadata || {};
   
   console.log('🎯 Extracted data:', { course_id, title, total_modules, status });
-  console.log('🎯 Title length:', title ? title.length : 'NO TITLE');
-  console.log('🎯 Description length:', description ? description.length : 'NO DESCRIPTION');
-  console.log('🎯 Module list:', module_list);
-  console.log('🎯 Topics:', topics);
+  console.log('🎯 Modules metadata received:', modules_metadata);
+  console.log('🎯 Generation started:', generation_started);
+  console.log('🎯 Estimated completion:', estimated_completion_time);
 
   // Safety check - if no courseData, show loading state
   if (!courseData) {
@@ -79,54 +78,9 @@ const CourseDisplay = ({ courseData, onStartNew, onModuleStart }) => {
   const currentLevelConfig = levelConfig[level] || levelConfig.principiante;
 
   const handleStartCourse = async () => {
-    try {
-      // Call the new start-course endpoint to trigger background generation
-      const response = await fetch(`/api/courses/${course_id}/start-course`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-
-      if (response.ok) {
-        console.log('🚀 Background generation of all modules initiated');
-        // Show a brief notification to user
-        const notification = document.createElement('div');
-        notification.innerHTML = '🚀 ¡Perfecto! Todos los módulos se están generando en segundo plano para una experiencia sin esperas.';
-        notification.style.cssText = `
-          position: fixed;
-          top: 20px;
-          right: 20px;
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          color: white;
-          padding: 1rem 1.5rem;
-          border-radius: 8px;
-          box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-          z-index: 9999;
-          max-width: 400px;
-          font-size: 0.875rem;
-          font-weight: 500;
-        `;
-        document.body.appendChild(notification);
-        
-        // Remove notification after 4 seconds
-        setTimeout(() => {
-          if (notification.parentNode) {
-            notification.parentNode.removeChild(notification);
-          }
-        }, 4000);
-      }
-      
-      // Start the first module
-      if (onModuleStart) {
-        onModuleStart(0);
-      }
-    } catch (error) {
-      console.error('Error starting course:', error);
-      // Fallback: just start the module normally
-      if (onModuleStart) {
-        onModuleStart(0);
-      }
+    // Start the first module immediately
+    if (onModuleStart) {
+      onModuleStart(0);
     }
   };
 
@@ -279,7 +233,7 @@ const CourseDisplay = ({ courseData, onStartNew, onModuleStart }) => {
           </div>
 
           <div className="course-modules">
-            {module_list && module_list.length > 0 ? module_list.map((moduleTitle, index) => (
+            {modules_metadata && modules_metadata.length > 0 ? modules_metadata.map((moduleData, index) => (
               <motion.div
                 key={`module-${index}`}
                 initial={{ opacity: 0, x: -20 }}
@@ -294,15 +248,29 @@ const CourseDisplay = ({ courseData, onStartNew, onModuleStart }) => {
                   
                   <div style={{ flex: 1 }}>
                     <h4 className="text-xl font-semibold mb-3" style={{ color: '#1f2937' }}>
-                      {moduleTitle}
+                      {moduleData.title}
                     </h4>
                     
-                    <p className="text-gray-600 mb-4" style={{ lineHeight: 1.6 }}>
-                      {index === 0 ? 
-                        'Módulo inicial con fundamentos y conceptos básicos. ¡Ya está listo para comenzar!' :
-                        'Este módulo se generará automáticamente cuando hagas click para acceder.'
-                      }
+                    <p className="text-gray-600 mb-3" style={{ lineHeight: 1.6 }}>
+                      {moduleData.description}
                     </p>
+
+                    <div style={{
+                      background: '#f8fafc',
+                      padding: '0.75rem',
+                      borderRadius: '6px',
+                      border: '1px solid #e2e8f0',
+                      marginBottom: '1rem'
+                    }}>
+                      <p style={{ 
+                        fontSize: '0.875rem', 
+                        fontWeight: '500',
+                        color: '#374151',
+                        margin: 0
+                      }}>
+                        🎯 <strong>Objetivo:</strong> {moduleData.objective}
+                      </p>
+                    </div>
                     
                     <div style={{
                       display: 'flex',
@@ -320,7 +288,7 @@ const CourseDisplay = ({ courseData, onStartNew, onModuleStart }) => {
                           color: '#6b7280'
                         }}>
                           <Clock size={14} />
-                          ~2h
+                          ~{moduleData.estimated_duration}h
                         </span>
                         
                         <span style={{
@@ -330,35 +298,9 @@ const CourseDisplay = ({ courseData, onStartNew, onModuleStart }) => {
                           fontSize: '0.875rem',
                           color: '#6b7280'
                         }}>
-                          <Users size={14} />
-                          {Math.floor(Math.random() * 1000) + 500}+ estudiantes
+                          <BookOpen size={14} />
+                          {moduleData.total_concepts} conceptos
                         </span>
-
-                        {index === 0 && (
-                          <span style={{
-                            padding: '0.25rem 0.5rem',
-                            background: '#10b981',
-                            color: 'white',
-                            borderRadius: '12px',
-                            fontSize: '0.75rem',
-                            fontWeight: '600'
-                          }}>
-                            ✓ Listo
-                          </span>
-                        )}
-
-                        {index > 0 && (
-                          <span style={{
-                            padding: '0.25rem 0.5rem',
-                            background: '#f59e0b',
-                            color: 'white',
-                            borderRadius: '12px',
-                            fontSize: '0.75rem',
-                            fontWeight: '600'
-                          }}>
-                            🤖 Generación IA
-                          </span>
-                        )}
                       </div>
                       
                       <button 
@@ -367,7 +309,7 @@ const CourseDisplay = ({ courseData, onStartNew, onModuleStart }) => {
                         style={{ fontSize: '0.875rem' }}
                       >
                         <PlayCircle size={16} />
-                        {index === 0 ? 'Empezar Módulo' : 'Generar y Empezar'}
+                        Acceder al Módulo
                       </button>
                     </div>
                   </div>

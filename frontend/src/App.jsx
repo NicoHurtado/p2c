@@ -72,14 +72,10 @@ function App() {
       setCourseData(data);
       console.log('📚 Course data set in state');
       
-      // Reducir el delay y agregar más logging
-      setTimeout(() => {
-        console.log('📚 About to transition to course display step');
-        console.log('📚 Current courseData:', data);
-        setCurrentStep('course');
-        setIsGenerating(false);
-        console.log('📚 Transition completed - should now show course');
-      }, 800); // Reducido de 1500 a 800ms
+      // Transición inmediata al resumen del curso
+      setCurrentStep('course');
+      setIsGenerating(false);
+      console.log('📚 Transitioned to course display');
 
     } catch (error) {
       console.error('❌ Error completo:', error);
@@ -92,6 +88,7 @@ function App() {
   };
 
   const handleStartNew = () => {
+    console.log('🔄 Starting new course - resetting state');
     setCurrentStep('form');
     setCourseData(null);
     setIsGenerating(false);
@@ -126,8 +123,15 @@ function App() {
     if (courseData) {
       setCurrentStep('course');
       setIsGenerating(false);
+    } else {
+      // Si no hay courseData, regresar al formulario
+      console.log('❌ No course data available, returning to form');
+      handleStartNew();
     }
   };
+
+  // Debug: Log current state
+  console.log('🔍 Current state:', { currentStep, courseData: !!courseData, isGenerating });
 
   return (
     <div className="App">
@@ -155,7 +159,7 @@ function App() {
               exit={{ opacity: 0, scale: 1.1 }}
               transition={{ duration: 0.6 }}
             >
-              <LoadingScreen onForceComplete={courseData ? handleForceComplete : null} />
+              <LoadingScreen onForceComplete={handleForceComplete} />
             </motion.div>
           )}
 
@@ -172,6 +176,27 @@ function App() {
                 onStartNew={handleStartNew}
                 onModuleStart={handleModuleStart}
               />
+            </motion.div>
+          )}
+
+          {currentStep === 'course' && !courseData && (
+            <motion.div
+              key="course-error"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="container mx-auto px-4 py-8 text-center"
+            >
+              <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
+                <h2 className="text-lg font-semibold text-red-800 mb-2">Error de Datos</h2>
+                <p className="text-red-600 mb-4">No se pudieron cargar los datos del curso.</p>
+                <button 
+                  onClick={handleStartNew}
+                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Volver al Inicio
+                </button>
+              </div>
             </motion.div>
           )}
 

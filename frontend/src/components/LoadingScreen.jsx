@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Brain, BookOpen, Sparkles, Lightbulb, Target, Zap } from 'lucide-react';
+import { Brain, BookOpen, Sparkles, Lightbulb, Target, Zap, AlertTriangle } from 'lucide-react';
 
 const LoadingScreen = ({ onForceComplete }) => {
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
+  const [timeElapsed, setTimeElapsed] = useState(0);
+  const [showTimeout, setShowTimeout] = useState(false);
 
   const steps = [
     { icon: Brain, text: "Analizando tu solicitud", color: "#4f46e5" },
@@ -26,11 +28,32 @@ const LoadingScreen = ({ onForceComplete }) => {
       setCurrentStep(prev => (prev + 1) % steps.length);
     }, 2000);
 
+    // Timeout timer - after 30 seconds show timeout option
+    const timeoutTimer = setTimeout(() => {
+      setShowTimeout(true);
+    }, 30000);
+
+    // Force timeout after 45 seconds
+    const forceTimeoutTimer = setTimeout(() => {
+      console.log('⏰ LoadingScreen timeout - forcing return to form');
+      if (onForceComplete) {
+        onForceComplete();
+      }
+    }, 45000);
+
+    // Update time elapsed every second
+    const timeElapsedInterval = setInterval(() => {
+      setTimeElapsed(prev => prev + 1);
+    }, 1000);
+
     return () => {
       clearInterval(interval);
       clearInterval(stepInterval);
+      clearInterval(timeElapsedInterval);
+      clearTimeout(timeoutTimer);
+      clearTimeout(forceTimeoutTimer);
     };
-  }, []);
+  }, [onForceComplete]);
 
   const LoadingIcon = ({ icon: Icon, color, isActive }) => (
     <motion.div
@@ -124,13 +147,13 @@ const LoadingScreen = ({ onForceComplete }) => {
             />
           </div>
 
-          {/* Progress percentage */}
+          {/* Progress percentage and time */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="text-lg font-semibold text-primary mb-6"
           >
-            {progress}%
+            {progress}% • {timeElapsed}s
           </motion.div>
 
           {/* Step indicators */}
@@ -182,27 +205,62 @@ const LoadingScreen = ({ onForceComplete }) => {
             </div>
           </motion.div>
 
-          {/* Debug button - temporal */}
-          {onForceComplete && (
+          {/* Timeout warning */}
+          {showTimeout && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{
+                marginTop: '2rem',
+                padding: '1rem',
+                background: '#fef3cd',
+                border: '1px solid #fbbf24',
+                borderRadius: '8px'
+              }}
+            >
+              <div className="flex items-center justify-center gap-2 text-sm text-yellow-800">
+                <AlertTriangle size={16} />
+                <span>La generación está tardando más de lo esperado</span>
+              </div>
+              <button
+                onClick={onForceComplete}
+                style={{
+                  marginTop: '0.5rem',
+                  background: '#f59e0b',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                Volver al formulario
+              </button>
+            </motion.div>
+          )}
+
+          {/* Debug button for development */}
+          {onForceComplete && process.env.NODE_ENV === 'development' && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 3, duration: 0.5 }}
+              transition={{ delay: 5, duration: 0.5 }}
               style={{ marginTop: '2rem' }}
             >
               <button
                 onClick={onForceComplete}
                 style={{
-                  background: '#ef4444',
+                  background: '#6b7280',
                   color: 'white',
                   border: 'none',
-                  padding: '8px 16px',
-                  borderRadius: '6px',
+                  padding: '6px 12px',
+                  borderRadius: '4px',
                   fontSize: '12px',
                   cursor: 'pointer'
                 }}
               >
-                🔧 Forzar completar (DEBUG)
+                [DEV] Force Complete
               </button>
             </motion.div>
           )}
