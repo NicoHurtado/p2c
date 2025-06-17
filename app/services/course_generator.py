@@ -15,7 +15,7 @@ from ..models.course import (
 from ..core.database import get_database
 from .claude_service import ClaudeService
 from .youtube_service import YouTubeService
-from .elevenlabs_service import ElevenLabsService
+from .polly_service import PollyService
 from .cache_service import CacheService
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class CourseGenerationService:
     def __init__(self):
         self.claude_service = ClaudeService()
         self.youtube_service = YouTubeService()
-        self.tts_service = ElevenLabsService()
+        self.tts_service = PollyService()
         self.cache_service = CacheService()
         self.executor = ThreadPoolExecutor(max_workers=5)
     
@@ -60,6 +60,15 @@ class CourseGenerationService:
                     request.level,
                     request.interests
                 )
+                
+                # Generar script del podcast
+                logger.info(f"🎙️ Generando script de podcast para curso")
+                podcast_script = await self.claude_service.generate_podcast_script(
+                    metadata,
+                    request.prompt,
+                    request.interests
+                )
+                metadata.podcast_script = podcast_script
                 
                 # Cache the response
                 await self.cache_service.cache_ai_response(
@@ -146,6 +155,13 @@ class CourseGenerationService:
                 course.user_interests
             )
             await self._update_course_introduction(course_id, introduction)
+            
+            # 🎙️ Generar audio del podcast si hay script
+            if course.metadata.podcast_script:
+                logger.info(f"🎧 Iniciando generación de audio del podcast para curso {course_id}")
+                asyncio.create_task(
+                    self._generate_podcast_audio_async(course_id, course.metadata.podcast_script, user_id)
+                )
             
             # 🔥 PARALLEL MODULE GENERATION: Create ALL modules concurrently
             if course.metadata.module_list:
@@ -621,3 +637,53 @@ class CourseGenerationService:
                     {"status": "failed", "progress": 0, "error": str(e)}
                 )
                 return None 
+    
+    async def _generate_podcast_audio_async(
+        self, 
+        course_id: str, 
+        podcast_script: str, 
+        user_id: str
+    ):
+        """
+        Genera el audio del podcast de forma asíncrona
+        """
+        try:
+            logger.info(f"🎙️ Iniciando generación de audio del podcast para curso {course_id}")
+            
+            # Generar audio con Amazon Polly
+            audio_url = await self.tts_service.generate_podcast_audio(
+                podcast_script,
+                course_id,
+                user_id
+            )
+            
+            if audio_url:
+                logger.info(f"✅ Audio del podcast generado: {audio_url}")
+                
+                # Actualizar el curso con la URL del audio
+                await self._update_course_podcast_audio(course_id, audio_url)
+                
+                logger.info(f"🎧 Podcast completado para curso {course_id}")
+            else:
+                logger.error(f"❌ No se pudo generar el audio del podcast para curso {course_id}")
+                
+        except Exception as e:
+            logger.error(f"❌ Error generando audio del podcast: {str(e)}")
+    
+    async def _update_course_podcast_audio(self, course_id: str, audio_url: str):
+        """Actualiza el curso con la URL del audio del podcast"""
+        try:
+            database = await get_database()
+            
+            result = await database.courses.update_one(
+                {"_id": course_id},
+                {"$set": {"metadata.podcast_audio_url": audio_url}}
+            )
+            
+            if result.modified_count > 0:
+                logger.info(f"✅ Audio URL actualizada para curso {course_id}: {audio_url}")
+            else:
+                logger.warning(f"⚠️ No se pudo actualizar la URL del audio para curso {course_id}")
+                
+        except Exception as e:
+            logger.error(f"❌ Error actualizando URL del audio: {str(e)}") 

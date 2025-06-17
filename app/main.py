@@ -4,8 +4,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 import time
 import json
+import os
 
 from .core.config import get_settings
 from .core.database import init_database, close_database
@@ -87,7 +89,7 @@ app = FastAPI(
     * **🧠 IA optimizada**: Integración con Claude para contenido inteligente
     * **📚 Chunking inteligente**: División optimizada del contenido para mejor rendimiento
     * **🎥 Videos automáticos**: Búsqueda e integración automática de videos de YouTube
-    * **🔊 Audio TTS**: Generación de audio con ElevenLabs
+    * **🔊 Audio TTS**: Generación de audio con Amazon Polly y almacenamiento en S3
     * **⚡ Streaming en tiempo real**: Server-Sent Events para progreso en vivo
     * **💾 Cache inteligente**: Redis para optimización de respuestas
     * **📊 Escalabilidad**: Diseñado para miles de usuarios simultáneos
@@ -127,6 +129,8 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
+
+# Nota: Los archivos de audio se almacenan en S3, no localmente
 
 # Add request logging middleware for debugging
 @app.middleware("http")

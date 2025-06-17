@@ -101,6 +101,9 @@ class CourseMetadata(BaseModel):
     module_list: List[str]  # titles of all modules
     topics: List[str]
     total_size: str  # estimated content size
+    # Campos para el podcast
+    podcast_script: Optional[str] = None  # Script del podcast con diálogos
+    podcast_audio_url: Optional[str] = None  # URL del archivo de audio generado
 
 
 class FinalProject(BaseModel):

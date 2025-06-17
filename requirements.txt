@@ -13,7 +13,8 @@ python-dotenv==1.0.0
 pydantic==2.5.0
 pydantic-settings==2.1.0
 boto3==1.34.0
-elevenlabs==0.2.26
+aioboto3==12.3.0
+botocore==1.34.0
 youtube-search-python==1.6.6
 sse-starlette==1.6.5
 aiofiles==23.2.1

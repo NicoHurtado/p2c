@@ -25,15 +25,17 @@ class Settings(BaseSettings):
     # AI Services
     claude_api_key: str = Field(..., env="CLAUDE_API_KEY")
     anthropic_api_key: str = Field(..., env="ANTHROPIC_API_KEY")
-    elevenlabs_api_key: str = Field(..., env="ELEVENLABS_API_KEY")
+    
+    # TTS Service (Amazon Polly)
+    aws_polly_region: str = Field(default="us-east-1", env="AWS_POLLY_REGION")
     
     # YouTube API
     youtube_data_api_key: str = Field(..., env="YOUTUBE_DATA_API_KEY")
     
-    # AWS S3 (Optional)
-    aws_access_key_id: Optional[str] = Field(default=None, env="AWS_ACCESS_KEY_ID")
-    aws_secret_access_key: Optional[str] = Field(default=None, env="AWS_SECRET_ACCESS_KEY")
-    aws_s3_bucket: Optional[str] = Field(default=None, env="AWS_S3_BUCKET")
+    # AWS Services (Required for Polly and S3)
+    aws_access_key_id: str = Field(..., env="AWS_ACCESS_KEY_ID")
+    aws_secret_access_key: str = Field(..., env="AWS_SECRET_ACCESS_KEY")
+    aws_s3_bucket: str = Field(default="prompt2course-audio-files", env="AWS_S3_BUCKET")
     aws_region: str = Field(default="us-east-1", env="AWS_REGION")
     
     # Redis

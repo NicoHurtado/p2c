@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   BookOpen, 
@@ -10,21 +10,76 @@ import {
   RefreshCw,
   Star,
   Users,
-  Trophy
+  Trophy,
+  Podcast,
+  Volume2
 } from 'lucide-react';
 
 const CourseDisplay = ({ courseData, onStartNew, onModuleStart }) => {
+  const [podcastAudioUrl, setPodcastAudioUrl] = useState(null);
+  
   // Debug logging
   console.log('🎯 CourseDisplay received courseData:', courseData);
   
   // Destructure from courseData structure returned by backend
   const { course_id, metadata, modules_metadata, status, generation_started, estimated_completion_time } = courseData || {};
-  const { title, description, level, total_modules, module_list, topics } = metadata || {};
+  const { title, description, level, total_modules, module_list, topics, podcast_audio_url, podcast_script } = metadata || {};
   
   console.log('🎯 Extracted data:', { course_id, title, total_modules, status });
   console.log('🎯 Modules metadata received:', modules_metadata);
   console.log('🎯 Generation started:', generation_started);
   console.log('🎯 Estimated completion:', estimated_completion_time);
+  console.log('🎧 PODCAST DEBUG - audio_url:', podcast_audio_url);
+  console.log('🎧 PODCAST DEBUG - script:', podcast_script);
+  console.log('🎧 PODCAST DEBUG - metadata completa:', metadata);
+  
+  // Verificar periódicamente si el audio del podcast está disponible
+  useEffect(() => {
+    // Si ya tenemos el audio, configurarlo
+    if (podcast_audio_url) {
+      setPodcastAudioUrl(podcast_audio_url);
+      return;
+    }
+    
+    // Si no tenemos el audio pero tenemos course_id, verificar periódicamente
+    if (course_id && !podcast_audio_url) {
+      const checkPodcastAudio = async () => {
+        try {
+          const response = await fetch(`/api/courses/${course_id}`);
+          if (response.ok) {
+            const courseData = await response.json();
+            console.log('🎧 CHECKING for podcast audio:', courseData.metadata?.podcast_audio_url);
+            
+            if (courseData.metadata?.podcast_audio_url) {
+              setPodcastAudioUrl(courseData.metadata.podcast_audio_url);
+              console.log('✅ Podcast audio found:', courseData.metadata.podcast_audio_url);
+            }
+          }
+        } catch (error) {
+          console.error('Error checking podcast audio:', error);
+        }
+      };
+      
+      // Verificar inmediatamente
+      checkPodcastAudio();
+      
+      // Verificar cada 5 segundos hasta encontrar el audio
+      const interval = setInterval(() => {
+        if (!podcastAudioUrl) {
+          checkPodcastAudio();
+        } else {
+          clearInterval(interval);
+        }
+      }, 5000);
+      
+      // Limpiar intervalo después de 2 minutos
+      setTimeout(() => {
+        clearInterval(interval);
+      }, 120000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [course_id, podcast_audio_url, podcastAudioUrl]);
 
   // Safety check - if no courseData, show loading state
   if (!courseData) {
@@ -84,6 +139,20 @@ const CourseDisplay = ({ courseData, onStartNew, onModuleStart }) => {
     }
   };
 
+  const handlePlayPodcast = (audioUrl) => {
+    try {
+      // Crear un elemento de audio y reproducirlo
+      const audio = new Audio(audioUrl);
+      audio.play().catch(error => {
+        console.error('Error reproduciendo el podcast:', error);
+        alert('No se pudo reproducir el audio. Por favor, verifica que el archivo esté disponible.');
+      });
+    } catch (error) {
+      console.error('Error creando el reproductor de audio:', error);
+      alert('Error al crear el reproductor de audio.');
+    }
+  };
+
   return (
     <div className="course-display">
       {/* Hero Section */}
@@ -140,6 +209,56 @@ const CourseDisplay = ({ courseData, onStartNew, onModuleStart }) => {
                 <span>~{(total_modules || 0) * 2}h estimadas</span>
               </div>
             </div>
+            
+            {/* Botón del Podcast */}
+            {podcastAudioUrl && (
+              <div style={{ marginTop: '2rem' }}>
+                <motion.button
+                  onClick={() => handlePlayPodcast(podcastAudioUrl)}
+                  style={{
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '25px',
+                    padding: '0.75rem 1.5rem',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+                    transition: 'all 0.3s ease'
+                  }}
+                  whileHover={{ 
+                    scale: 1.05,
+                    boxShadow: '0 6px 20px rgba(102, 126, 234, 0.6)'
+                  }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Podcast size={20} />
+                  🎧 Escuchar Introducción
+                </motion.button>
+              </div>
+            )}
+            
+            {/* Botón de debug temporal */}
+            {!podcastAudioUrl && (
+              <div style={{ marginTop: '2rem' }}>
+                <div style={{
+                  background: '#f59e0b',
+                  color: 'white',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '8px',
+                  fontSize: '0.875rem'
+                }}>
+                  🔍 Debug: Audio del podcast no disponible aún
+                  {podcast_script && <div>✅ Script generado</div>}
+                  {!podcast_script && <div>❌ Script no encontrado</div>}
+                  <div>🔄 Verificando cada 5 segundos...</div>
+                </div>
+              </div>
+            )}
           </motion.div>
         </div>
       </div>

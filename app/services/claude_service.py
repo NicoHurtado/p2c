@@ -991,41 +991,37 @@ Este concepto es fundamental en arquitecturas distribuidas, sistemas de alta dis
         modules: List[Module],
         interests: List[str]
     ) -> str:
-        """Generate comprehensive course summary"""
-        
-        module_titles = [module.title for module in modules]
-        
-        prompt = f"""
-        Genera un resumen completo para el curso "{course_metadata.title}".
-        Módulos cubiertos: {', '.join(module_titles)}
-        Intereses del usuario: {', '.join(interests)}
-        
-        Formato del resumen:
-        
-        🎓 **Resumen del Curso**
-        
-        📚 **Lo que has aprendido:**
-        [Lista de conceptos principales cubiertos]
-        
-        🌟 **Habilidades desarrolladas:**
-        [Lista de habilidades prácticas adquiridas]
-        
-        💡 **Aplicaciones prácticas:**
-        [Cómo aplicar lo aprendido en contextos relacionados con {', '.join(interests)}]
-        
-        🚀 **Próximos pasos:**
-        [Recomendaciones para continuar el aprendizaje]
-        
-        🎯 **Recursos adicionales:**
-        [Lista de recursos para profundizar]
-        
-        Máximo 800 palabras total.
-        """
-        
+        """Generate a comprehensive course summary"""
         try:
+            modules_info = "\n".join([
+                f"- {module.title}: {module.description}"
+                for module in modules[:3]  # Show first 3 modules only
+            ])
+            
+            prompt = f"""Genera un resumen ejecutivo profesional para:
+
+CURSO: {course_metadata.title}
+NIVEL: {course_metadata.level}
+DURACIÓN: {course_metadata.estimated_duration}h
+MÓDULOS: {course_metadata.total_modules}
+
+CONTENIDO DE MÓDULOS:
+{modules_info}
+
+INTERESES: {', '.join(interests[:3])}
+
+REQUISITOS:
+1. Máximo 200 palabras
+2. Tono profesional pero accesible
+3. Incluir beneficios clave del curso
+4. Mencionar aplicación práctica en intereses del usuario
+5. Concluir con call-to-action motivacional
+
+FORMATO: Párrafo corrido sin numeración."""
+
             response = await self.client.messages.create(
                 model=self.model,
-                max_tokens=1200,
+                max_tokens=300,
                 messages=[{"role": "user", "content": prompt}]
             )
             
@@ -1033,4 +1029,96 @@ Este concepto es fundamental en arquitecturas distribuidas, sistemas de alta dis
             
         except Exception as e:
             logger.error(f"Error generating course summary: {str(e)}")
-            raise 
+            return f"Resumen del curso completo sobre {course_metadata.title} con {course_metadata.total_modules} módulos especializados."
+
+    async def generate_podcast_script(
+        self, 
+        course_metadata: CourseMetadata,
+        user_prompt: str,
+        interests: List[str]
+    ) -> str:
+        """
+        Genera un script para podcast de 2 minutos máximo con dos locutores
+        """
+        try:
+            prompt = f"""Crea un script para podcast educativo de máximo 2 minutos con DOS LOCUTORES (María y Carlos) que presenten el curso:
+
+CURSO: {course_metadata.title}
+DESCRIPCIÓN: {course_metadata.description}
+NIVEL: {course_metadata.level}
+MÓDULOS: {', '.join(course_metadata.module_list[:4])}
+INTERESES DEL USUARIO: {', '.join(interests[:3])}
+
+REQUISITOS ESTRICTOS:
+1. Máximo 2 minutos (aproximadamente 300-350 palabras total)
+2. Conversación natural entre María (mujer) y Carlos (hombre)
+3. Tono entusiasta pero profesional
+4. En español
+5. Incluir beneficios específicos del curso
+6. Conectar con los intereses del usuario: {', '.join(interests[:3])}
+
+FORMATO REQUERIDO:
+MARÍA: [texto de la locutora]
+CARLOS: [texto del locutor]
+MARÍA: [texto de la locutora]
+...y así alternar
+
+ESTRUCTURA SUGERIDA:
+- Saludo y presentación del curso (15-20 segundos)
+- Qué aprenderás específicamente (40-50 segundos)  
+- Conexión con intereses del usuario (30-40 segundos)
+- Call to action final (15-20 segundos)
+
+EJEMPLO DE INICIO:
+MARÍA: ¡Hola! Soy María y junto a Carlos te presentamos "{course_metadata.title}"
+CARLOS: Un curso diseñado especialmente para nivel {course_metadata.level} que te llevará desde los conceptos básicos hasta...
+
+Genera el script completo:"""
+
+            response = await self.client.messages.create(
+                model=self.model,
+                max_tokens=500,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            
+            script = response.content[0].text.strip()
+            
+            # Validar que el script tenga el formato correcto
+            if not self._validate_podcast_script(script):
+                logger.warning("Script generado no tiene el formato correcto, usando fallback")
+                return self._generate_fallback_podcast_script(course_metadata, interests)
+            
+            return script
+            
+        except Exception as e:
+            logger.error(f"Error generando script de podcast: {str(e)}")
+            return self._generate_fallback_podcast_script(course_metadata, interests)
+    
+    def _validate_podcast_script(self, script: str) -> bool:
+        """Valida que el script tenga el formato correcto para dos locutores"""
+        lines = script.strip().split('\n')
+        maria_count = sum(1 for line in lines if line.upper().startswith('MARÍA:') or line.upper().startswith('MARIA:'))
+        carlos_count = sum(1 for line in lines if line.upper().startswith('CARLOS:'))
+        
+        # Debe tener al menos 2 intervenciones de cada locutor
+        return maria_count >= 2 and carlos_count >= 2
+    
+    def _generate_fallback_podcast_script(
+        self, 
+        course_metadata: CourseMetadata, 
+        interests: List[str]
+    ) -> str:
+        """Genera un script básico como fallback"""
+        interests_text = f" especialmente relacionado con {', '.join(interests[:2])}" if interests else ""
+        
+        return f"""MARÍA: ¡Hola! Soy María y te damos la bienvenida a "{course_metadata.title}"
+
+CARLOS: Hola, soy Carlos. Este curso está diseñado para nivel {course_metadata.level}{interests_text}
+
+MARÍA: En {course_metadata.total_modules} módulos aprenderás desde los fundamentos hasta aplicaciones prácticas
+
+CARLOS: Comenzaremos con {course_metadata.module_list[0] if course_metadata.module_list else 'conceptos básicos'} y avanzaremos gradualmente
+
+MARÍA: Al finalizar tendrás las habilidades necesarias para aplicar estos conocimientos en proyectos reales
+
+CARLOS: ¡Empecemos este emocionante viaje de aprendizaje juntos!""" 
